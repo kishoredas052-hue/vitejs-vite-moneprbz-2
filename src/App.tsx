@@ -5,6 +5,8 @@ import LineChart from './LineChart'
 import StockList from './StockList'
 import ProfileScreen from './ProfileScreen'
 
+const API = 'https://pro-investment-backend.onrender.com'
+
 const defaultSettings: Settings = {
   dark: true,
   lang: 'en',
@@ -22,6 +24,8 @@ function load<T>(key: string, fallback: T): T {
   }
 }
 
+type Nifty = { price: number; change_percent: number }
+
 export default function App() {
   const [tab, setTab] = useState<Tab>('Home')
   const [tf, setTf] = useState<Timeframe>('1M')
@@ -30,6 +34,22 @@ export default function App() {
   )
   const [user, setUser] = useState<User | null>(null)
   const [watch, setWatch] = useState<string[]>(() => load('pit-watch', []))
+  const [nifty, setNifty] = useState<Nifty | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${API}/index/nifty`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled && typeof d.price === 'number') {
+          setNifty({ price: d.price, change_percent: d.change_percent })
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     try {
@@ -56,6 +76,12 @@ export default function App() {
 
   const watched = stocks.filter((s) => watch.includes(s.name))
 
+  const niftyPrice = nifty
+    ? nifty.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : '22,450.80'
+  const niftyChange = nifty ? nifty.change_percent : 0.84
+  const niftyDiff = nifty ? '' : '+186.25 '
+
   return (
     <div className={`min-h-screen ${base} max-w-md mx-auto pb-24`}>
       <header className="flex items-center justify-between px-5 pt-6">
@@ -67,8 +93,12 @@ export default function App() {
         <>
           <section className={`mx-4 mt-5 rounded-2xl ${card} p-5`}>
             <p className={`text-sm ${muted}`}>{t.nifty}</p>
-            <p className="text-3xl font-bold mt-1">22,450.80</p>
-            <p className="text-green-400 text-sm mt-1">+186.25 (+0.84%)</p>
+            <p className="text-3xl font-bold mt-1">{niftyPrice}</p>
+            <p className={niftyChange >= 0 ? 'text-green-400 text-sm mt-1' : 'text-red-400 text-sm mt-1'}>
+              {niftyDiff}
+              {niftyChange >= 0 ? '+' : ''}
+              {niftyChange.toFixed(2)}%
+            </p>
 
             <LineChart data={chartData[tf]} />
 
