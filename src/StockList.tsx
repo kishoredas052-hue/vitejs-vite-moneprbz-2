@@ -34,9 +34,10 @@ type RowProps = {
   t: T
   added: boolean
   onToggle: (name: string) => void
+  onOpen: (s: Stock) => void
 }
 
-function StockRow({ s, card, muted, t, added, onToggle }: RowProps) {
+function StockRow({ s, card, muted, t, added, onToggle, onOpen }: RowProps) {
   const live = useLivePrice(s)
 
   const prefix = s.exch === 'NASDAQ' ? '$ ' : ''
@@ -50,7 +51,10 @@ function StockRow({ s, card, muted, t, added, onToggle }: RowProps) {
   const change = live ? live.change_percent : s.change
 
   return (
-    <div className={`flex justify-between items-center ${card} rounded-xl p-4 mb-3`}>
+    <div
+      onClick={() => onOpen(s)}
+      className={`flex justify-between items-center ${card} rounded-xl p-4 mb-3 cursor-pointer`}
+    >
       <div>
         <p className="font-semibold">{s.name}</p>
         <p className={`text-xs ${muted}`}>{s.exch}</p>
@@ -62,7 +66,10 @@ function StockRow({ s, card, muted, t, added, onToggle }: RowProps) {
           {change.toFixed(2)}%
         </p>
         <button
-          onClick={() => onToggle(s.name)}
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggle(s.name)
+          }}
           className={`mt-2 text-xs px-2 py-1 rounded-full ${
             added ? 'bg-violet-600 text-white' : `border border-zinc-600 ${muted}`
           }`}
@@ -81,9 +88,10 @@ type Props = {
   t: T
   watch: string[]
   onToggle: (name: string) => void
+  onOpen: (s: Stock) => void
 }
 
-export default function StockList({ items, card, muted, t, watch, onToggle }: Props) {
+export default function StockList({ items, card, muted, t, watch, onToggle, onOpen }: Props) {
   return (
     <>
       {items.map((s) => (
@@ -95,6 +103,7 @@ export default function StockList({ items, card, muted, t, watch, onToggle }: Pr
           t={t}
           added={watch.includes(s.name)}
           onToggle={onToggle}
+          onOpen={onOpen}
         />
       ))}
     </>
