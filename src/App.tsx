@@ -5,6 +5,7 @@ import LineChart from './LineChart'
 import StockList from './StockList'
 import StockDetail from './StockDetail'
 import ProfileScreen from './ProfileScreen'
+import Screener from './Screener'
 
 const API = 'https://pro-investment-backend.onrender.com'
 
@@ -152,18 +153,21 @@ export default function App() {
       )}
 
       {!selected && tab === 'Stocks' && (
-        <section className="mx-4 mt-6">
-          <h2 className="text-lg font-semibold mb-3">{t.stocks}</h2>
-          <StockList
-            items={stocks}
-            card={card}
-            muted={muted}
-            t={t}
-            watch={watch}
-            onToggle={toggleWatch}
-            onOpen={setSelected}
-          />
-        </section>
+        <>
+          <section className="mx-4 mt-6">
+            <h2 className="text-lg font-semibold mb-3">{t.stocks}</h2>
+            <StockList
+              items={stocks}
+              card={card}
+              muted={muted}
+              t={t}
+              watch={watch}
+              onToggle={toggleWatch}
+              onOpen={setSelected}
+            />
+          </section>
+          <Screener card={card} muted={muted} t={t} onOpen={setSelected} />
+        </>
       )}
 
       {!selected && tab === 'Watchlist' && (
