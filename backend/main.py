@@ -18,6 +18,13 @@ TF_CONFIG = {
     "1Y": ("1y", "1wk"),
 }
 
+UNIVERSE = [
+    "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "ICICIBANK.NS",
+    "SBIN.NS", "BHARTIARTL.NS", "ITC.NS", "LT.NS", "HINDUNILVR.NS",
+    "KOTAKBANK.NS", "AXISBANK.NS", "BAJFINANCE.NS", "ASIANPAINT.NS", "MARUTI.NS",
+    "SUNPHARMA.NS", "TITAN.NS", "ULTRACEMCO.NS", "WIPRO.NS", "NESTLEIND.NS",
+]
+
 
 def _num(v):
     try:
@@ -41,43 +48,11 @@ def _quote(symbol: str):
     }
 
 
-@app.get("/")
-def root():
-    return {"status": "ok"}
-
-
-@app.get("/price/{symbol}")
-def price(symbol: str):
-    data = _quote(symbol)
-    if data is None:
-        return {"symbol": symbol, "error": "no data"}
-    return data
-
-
-@app.get("/index/nifty")
-def nifty():
-    data = _quote("^NSEI")
-    if data is None:
-        return {"symbol": "^NSEI", "error": "no data"}
-    return data
-
-
-@app.get("/history")
-def history(symbol: str = Query(...), tf: str = Query("1M")):
-    period, interval = TF_CONFIG.get(tf, TF_CONFIG["1M"])
-    hist = yf.Ticker(symbol).history(period=period, interval=interval)
-    if hist.empty:
-        return {"symbol": symbol, "tf": tf, "points": []}
-    closes = [round(float(v), 2) for v in hist["Close"].dropna().tolist()]
-    return {"symbol": symbol, "tf": tf, "points": closes}
-
-
-@app.get("/analysis")
-def analysis(symbol: str = Query(...)):
+def _analyze(symbol: str):
     t = yf.Ticker(symbol)
     hist = t.history(period="1y", interval="1d")
     if hist.empty or len(hist) < 30:
-        return {"symbol": symbol, "error": "not enough data"}
+        return None
 
     close = hist["Close"].dropna()
     last = float(close.iloc[-1])
@@ -89,8 +64,6 @@ def analysis(symbol: str = Query(...)):
 
     sma20 = _num(close.rolling(20).mean().iloc[-1])
     sma50 = _num(close.rolling(50).mean().iloc[-1]) if len(close) >= 50 else None
-    high52 = _num(close.max())
-    low52 = _num(close.min())
 
     try:
         info = t.info or {}
@@ -112,7 +85,7 @@ def analysis(symbol: str = Query(...)):
             reasons.append("Price 50-din average ke neeche hai")
         if sma20 is not None and sma20 > sma50:
             score += 1
-            reasons.append("20-din average 50-din ke upar hai (short-term trend upar)")
+            reasons.append("20-din average 50-din ke upar hai")
 
     if rsi is not None:
         if rsi >= 70:
@@ -150,11 +123,78 @@ def analysis(symbol: str = Query(...)):
         "sma20": sma20,
         "sma50": sma50,
         "rsi": rsi,
-        "high52": high52,
-        "low52": low52,
         "pe": pe,
         "roe": roe,
         "score": score,
         "verdict": verdict,
         "reasons": reasons,
     }
+
+
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
+
+@app.get("/price/{symbol}")
+def price(symbol: str):
+    data = _quote(symbol)
+    if data is None:
+        return {"symbol": symbol, "error": "no data"}
+    return data
+
+
+@app.get("/index/nifty")
+def nifty():
+    data = _quote("^NSEI")
+    if data is None:
+        return {"symbol": "^NSEI", "error": "no data"}
+    return data
+
+
+@app.get("/history")
+def history(symbol: str = Query(...), tf: str = Query("1M")):
+    period, interval = TF_CONFIG.get(tf, TF_CONFIG["1M"])
+    hist = yf.Ticker(symbol).history(period=period, interval=interval)
+    if hist.empty:
+        return {"symbol": symbol, "tf": tf, "points": []}
+    closes = [round(float(v), 2) for v in hist["Close"].dropna().tolist()]
+    return {"symbol": symbol, "tf": tf, "points": closes}
+
+
+@app.get("/analysis")
+def analysis(symbol: str = Query(...)):
+    data = _analyze(symbol)
+    if data is None:
+        return {"symbol": symbol, "error": "not enough data"}
+    return data
+
+
+@app.get("/screener")
+def screener(
+    min_rsi: float = Query(0),
+    max_rsi: float = Query(100),
+    max_pe: float = Query(1000),
+    trend: str = Query("any"),
+):
+    results = []
+    for sym in UNIVERSE:
+        try:
+            a = _analyze(sym)
+        except Exception:
+            a = None
+        if a is None:
+            continue
+        rsi = a["rsi"]
+        pe = a["pe"]
+        if rsi is None or rsi < min_rsi or rsi > max_rsi:
+            continue
+        if pe is not None and pe > max_pe:
+            continue
+        if trend == "up" and not (a["sma50"] and a["price"] > a["sma50"]):
+            continue
+        if trend == "down" and not (a["sma50"] and a["price"] < a["sma50"]):
+            continue
+        results.append(a)
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return {"count": len(results), "results": results}
