@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Settings, Timeframe, Tab, User } from './data'
-import { text, chartData, stocks, timeframes, navItems } from './data'
+import { text, stocks, timeframes, navItems } from './data'
 import LineChart from './LineChart'
 import StockList from './StockList'
 import ProfileScreen from './ProfileScreen'
@@ -35,6 +35,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [watch, setWatch] = useState<string[]>(() => load('pit-watch', []))
   const [nifty, setNifty] = useState<Nifty | null>(null)
+  const [hist, setHist] = useState<number[] | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -50,6 +51,21 @@ export default function App() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${API}/history?symbol=${encodeURIComponent('^NSEI')}&tf=${tf}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled && Array.isArray(d.points) && d.points.length > 1) {
+          setHist(d.points)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [tf])
 
   useEffect(() => {
     try {
@@ -78,9 +94,7 @@ export default function App() {
 
   const niftyPrice = nifty
     ? nifty.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : '22,450.80'
-  const niftyChange = nifty ? nifty.change_percent : 0.84
-  const niftyDiff = nifty ? '' : '+186.25 '
+    : '...'
 
   return (
     <div className={`min-h-screen ${base} max-w-md mx-auto pb-24`}>
@@ -94,13 +108,18 @@ export default function App() {
           <section className={`mx-4 mt-5 rounded-2xl ${card} p-5`}>
             <p className={`text-sm ${muted}`}>{t.nifty}</p>
             <p className="text-3xl font-bold mt-1">{niftyPrice}</p>
-            <p className={niftyChange >= 0 ? 'text-green-400 text-sm mt-1' : 'text-red-400 text-sm mt-1'}>
-              {niftyDiff}
-              {niftyChange >= 0 ? '+' : ''}
-              {niftyChange.toFixed(2)}%
-            </p>
+            {nifty && (
+              <p
+                className={
+                  nifty.change_percent >= 0 ? 'text-green-400 text-sm mt-1' : 'text-red-400 text-sm mt-1'
+                }
+              >
+                {nifty.change_percent >= 0 ? '+' : ''}
+                {nifty.change_percent.toFixed(2)}%
+              </p>
+            )}
 
-            <LineChart data={chartData[tf]} />
+            {hist && <LineChart data={hist} />}
 
             <div className="flex justify-between mt-4 text-sm">
               {timeframes.map((x) => (
