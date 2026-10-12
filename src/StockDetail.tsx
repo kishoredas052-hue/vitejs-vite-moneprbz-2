@@ -5,6 +5,19 @@ import LineChart from './LineChart'
 
 const API = 'https://pro-investment-backend.onrender.com'
 
+type An = {
+  price: number
+  sma20: number | null
+  sma50: number | null
+  rsi: number | null
+  high52: number | null
+  low52: number | null
+  pe: number | null
+  roe: number | null
+  verdict: string
+  reasons?: string[]
+}
+
 type Props = {
   stock: Stock
   card: string
@@ -15,9 +28,13 @@ type Props = {
   onBack: () => void
 }
 
+const f = (v: number | null | undefined, d = 2) =>
+  v === null || v === undefined ? '-' : v.toFixed(d)
+
 export default function StockDetail({ stock, card, muted, t, added, onToggle, onBack }: Props) {
   const [tf, setTf] = useState<Timeframe>('1M')
   const [points, setPoints] = useState<number[] | null>(null)
+  const [an, setAn] = useState<An | null>(null)
   const symbol = stock.exch === 'NSE' ? `${stock.name}.NS` : stock.name
 
   useEffect(() => {
@@ -36,6 +53,20 @@ export default function StockDetail({ stock, card, muted, t, added, onToggle, on
     }
   }, [symbol, tf])
 
+  useEffect(() => {
+    let cancelled = false
+    setAn(null)
+    fetch(`${API}/analysis?symbol=${encodeURIComponent(symbol)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled && typeof d.price === 'number') setAn(d)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [symbol])
+
   const last = points ? points[points.length - 1] : null
   const first = points ? points[0] : null
   const changePct = last !== null && first ? ((last - first) / first) * 100 : null
@@ -48,6 +79,13 @@ export default function StockDetail({ stock, card, muted, t, added, onToggle, on
           maximumFractionDigits: 2,
         })
       : stock.price
+
+  const vColor =
+    an?.verdict === 'Positive bias'
+      ? 'text-green-400'
+      : an?.verdict === 'Weak bias'
+      ? 'text-red-400'
+      : muted
 
   return (
     <section className="mx-4 mt-6">
@@ -94,6 +132,48 @@ export default function StockDetail({ stock, card, muted, t, added, onToggle, on
           {added ? t.inWatch : t.addToWatch}
         </button>
       </div>
+
+      {an && (
+        <div className={`rounded-2xl ${card} p-5 mt-4`}>
+          <p className="font-semibold">Analysis</p>
+          <p className={`text-sm mt-1 ${vColor}`}>{an.verdict}</p>
+
+          <div className="grid grid-cols-2 gap-3 mt-3 text-sm">
+            <div>
+              <p className={`text-xs ${muted}`}>RSI (14)</p>
+              <p>{f(an.rsi, 1)}</p>
+            </div>
+            <div>
+              <p className={`text-xs ${muted}`}>SMA 20 / 50</p>
+              <p>
+                {f(an.sma20, 0)} / {f(an.sma50, 0)}
+              </p>
+            </div>
+            <div>
+              <p className={`text-xs ${muted}`}>52W High / Low</p>
+              <p>
+                {f(an.high52, 0)} / {f(an.low52, 0)}
+              </p>
+            </div>
+            <div>
+              <p className={`text-xs ${muted}`}>PE / ROE %</p>
+              <p>
+                {f(an.pe, 1)} / {f(an.roe, 1)}
+              </p>
+            </div>
+          </div>
+
+          <ul className={`mt-3 text-xs ${muted} list-disc pl-4 space-y-1`}>
+            {(an.reasons ?? []).map((r, i) => (
+              <li key={i}>{r}</li>
+            ))}
+          </ul>
+
+          <p className={`text-[10px] ${muted} mt-3`}>
+            Ye sirf analysis signal hai, buy ya sell ki salah nahi.
+          </p>
+        </div>
+      )}
     </section>
   )
 }
