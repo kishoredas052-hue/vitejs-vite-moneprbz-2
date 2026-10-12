@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import type { Settings, Timeframe, Tab, User } from './data'
+import type { Settings, Timeframe, Tab, User, Stock } from './data'
 import { text, stocks, timeframes, navItems } from './data'
 import LineChart from './LineChart'
 import StockList from './StockList'
+import StockDetail from './StockDetail'
 import ProfileScreen from './ProfileScreen'
 
 const API = 'https://pro-investment-backend.onrender.com'
@@ -29,6 +30,7 @@ type Nifty = { price: number; change_percent: number }
 export default function App() {
   const [tab, setTab] = useState<Tab>('Home')
   const [tf, setTf] = useState<Timeframe>('1M')
+  const [selected, setSelected] = useState<Stock | null>(null)
   const [settings, setSettings] = useState<Settings>(() =>
     load('pit-settings', defaultSettings)
   )
@@ -103,7 +105,7 @@ export default function App() {
         <span className={`text-xs ${muted}`}>{t.analysisOnly}</span>
       </header>
 
-      {tab === 'Home' && (
+      {!selected && tab === 'Home' && (
         <>
           <section className={`mx-4 mt-5 rounded-2xl ${card} p-5`}>
             <p className={`text-sm ${muted}`}>{t.nifty}</p>
@@ -136,27 +138,63 @@ export default function App() {
 
           <section className="mx-4 mt-6">
             <h2 className={`text-sm ${muted} mb-3`}>{t.picks}</h2>
-            <StockList items={stocks} card={card} muted={muted} t={t} watch={watch} onToggle={toggleWatch} />
+            <StockList
+              items={stocks}
+              card={card}
+              muted={muted}
+              t={t}
+              watch={watch}
+              onToggle={toggleWatch}
+              onOpen={setSelected}
+            />
           </section>
         </>
       )}
 
-      {tab === 'Stocks' && (
+      {!selected && tab === 'Stocks' && (
         <section className="mx-4 mt-6">
           <h2 className="text-lg font-semibold mb-3">{t.stocks}</h2>
-          <StockList items={stocks} card={card} muted={muted} t={t} watch={watch} onToggle={toggleWatch} />
+          <StockList
+            items={stocks}
+            card={card}
+            muted={muted}
+            t={t}
+            watch={watch}
+            onToggle={toggleWatch}
+            onOpen={setSelected}
+          />
         </section>
       )}
 
-      {tab === 'Watchlist' && (
+      {!selected && tab === 'Watchlist' && (
         <section className="mx-4 mt-6">
           <h2 className="text-lg font-semibold mb-3">{t.watchlist}</h2>
           {watched.length === 0 ? (
             <p className={`text-sm ${muted} mt-2`}>{t.watchEmpty}</p>
           ) : (
-            <StockList items={watched} card={card} muted={muted} t={t} watch={watch} onToggle={toggleWatch} />
+            <StockList
+              items={watched}
+              card={card}
+              muted={muted}
+              t={t}
+              watch={watch}
+              onToggle={toggleWatch}
+              onOpen={setSelected}
+            />
           )}
         </section>
+      )}
+
+      {selected && (
+        <StockDetail
+          stock={selected}
+          card={card}
+          muted={muted}
+          t={t}
+          added={watch.includes(selected.name)}
+          onToggle={toggleWatch}
+          onBack={() => setSelected(null)}
+        />
       )}
 
       {tab === 'Profile' && (
@@ -177,7 +215,10 @@ export default function App() {
         {navItems.map((item) => (
           <button
             key={item.tab}
-            onClick={() => setTab(item.tab)}
+            onClick={() => {
+              setTab(item.tab)
+              setSelected(null)
+            }}
             className={tab === item.tab ? 'text-violet-400' : muted}
           >
             {item.icon} {t[item.key]}
