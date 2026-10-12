@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
 
@@ -10,6 +10,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+TF_CONFIG = {
+    "1D": ("1d", "5m"),
+    "1W": ("5d", "30m"),
+    "1M": ("1mo", "1d"),
+    "1Y": ("1y", "1wk"),
+}
 
 
 @app.get("/")
@@ -46,3 +53,13 @@ def nifty():
     if data is None:
         return {"symbol": "^NSEI", "error": "no data"}
     return data
+
+
+@app.get("/history")
+def history(symbol: str = Query(...), tf: str = Query("1M")):
+    period, interval = TF_CONFIG.get(tf, TF_CONFIG["1M"])
+    hist = yf.Ticker(symbol).history(period=period, interval=interval)
+    if hist.empty:
+        return {"symbol": symbol, "tf": tf, "points": []}
+    closes = [round(float(v), 2) for v in hist["Close"].dropna().tolist()]
+    return {"symbol": symbol, "tf": tf, "points": closes}
