@@ -198,3 +198,60 @@ def screener(
         results.append(a)
     results.sort(key=lambda x: x["score"], reverse=True)
     return {"count": len(results), "results": results}
+
+import json as _json
+import time as _time
+import urllib.request as _urlreq
+import urllib.error as _urlerr
+
+_AI_CACHE = {}
+_AI_TTL = 3600
+
+
+def _gemini_text(prompt: str):
+    import os
+    key = os.environ.get("GEMINI_API_KEY", "")
+    model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+    if not key:
+        return None, "GEMINI_API_KEY set nahi hai (Render Environment mein add karein)"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+    body = _json.dumps({
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"maxOutputTokens": 400, "temperature": 0.3},
+    }).encode("utf-8")
+    req = _urlreq.Request(url, data=body, headers={"Content-Type": "application/json"})
+    try:
+        with _urlreq.urlopen(req, timeout=40) as resp:
+            data = _json.loads(resp.read().decode("utf-8"))
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        return text.strip(), None
+    except _urlerr.HTTPError as e:
+        return None, f"Gemini error {e.code}: quota ya API key check karein"
+    except Exception as e:
+        return None, f"AI call fail: {type(e).__name__}"
+
+
+@app.get("/verdict")
+def verdict(symbol: str = Query(...)):
+    now = _time.time()
+    cached = _AI_CACHE.get(symbol)
+    if cached and now - cached[0] < _AI_TTL:
+        return {"symbol": symbol, "text": cached[1], "cached": True}
+
+    a = _analyze(symbol)
+    if a is None:
+        return {"symbol": symbol, "error": "analysis data nahi mila"}
+
+    facts = {k: a.get(k) for k in ["price", "sma20", "sma50", "rsi", "pe", "roe", "verdict", "reasons"]}
+    prompt = (
+        "Tum ek stock analysis assistant ho. Neeche diye data se 4-5 chhoti lines mein "
+        "Hinglish (Roman Hindi + English) mein summary likho: trend, momentum (RSI), "
+        "valuation (PE), aur ek main risk. Koi buy ya sell ki salah mat do. "
+        "Aakhir mein likho: 'Ye sirf analysis hai, investment advice nahi.'\n\n"
+        f"Stock: {symbol}\nData: {_json.dumps(facts, ensure_ascii=False)}"
+    )
+    text, err = _gemini_text(prompt)
+    if err:
+        return {"symbol": symbol, "error": err}
+    _AI_CACHE[symbol] = (now, text)
+    return {"symbol": symbol, "text": text, "cached": False}
