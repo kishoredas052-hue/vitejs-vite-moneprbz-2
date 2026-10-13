@@ -17,6 +17,20 @@ def _tickers():
     return [s + ".NS" for s in seen]
 
 
+def _mood(nifty):
+    if not nifty:
+        return "Unknown"
+    up_trend = nifty["above_sma50"]
+    day_up = nifty["change_percent"] >= 0
+    if up_trend and day_up:
+        return "Bullish"
+    if up_trend and not day_up:
+        return "Neutral"
+    if not up_trend and day_up:
+        return "Recovering"
+    return "Weak"
+
+
 def _compute():
     tickers = _tickers() + ["^NSEI"]
     df = yf.download(
@@ -64,17 +78,8 @@ def _compute():
 
     rows.sort(key=lambda x: x["change_percent"], reverse=True)
 
-    mood = "Unknown"
-    if nifty:
-        if nifty["above_sma50"] and nifty["change_percent"] >= 0:
-            mood = "Bullish"
-        elif not nifty["above_sma50"]:
-            mood = "Bearish"
-        else:
-            mood = "Neutral"
-
     return {
-        "mood": mood,
+        "mood": _mood(nifty),
         "nifty": nifty,
         "breadth": {
             "above_sma50": above,
