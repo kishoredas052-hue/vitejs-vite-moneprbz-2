@@ -322,4 +322,35 @@ def ai_verdict(symbol: str = Query(...)):
     _AI_CACHE2[symbol] = (now, text)
     return {"symbol": symbol, "text": text, "cached": False}
 
+@app.get("/groq-debug")
+def groq_debug():
+    import os
+    key = os.environ.get("GROQ_API_KEY", "")
+    model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+    info = {"key_len": len(key), "model_repr": repr(model)}
+    body = _json.dumps({
+        "model": model,
+        "messages": [{"role": "user", "content": "hi"}],
+        "max_tokens": 5,
+    }).encode("utf-8")
+    req = _urlreq.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {key}",
+            "User-Agent": "pro-investment-terminal/1.0",
+        },
+    )
+    try:
+        with _urlreq.urlopen(req, timeout=40) as resp:
+            info["status"] = resp.status
+            info["body"] = resp.read().decode("utf-8")[:400]
+    except _urlerr.HTTPError as e:
+        info["status"] = e.code
+        info["body"] = e.read().decode("utf-8", "ignore")[:400]
+    except Exception as e:
+        info["error"] = type(e).__name__ + ": " + str(e)[:200]
+    return info
+
 
