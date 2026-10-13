@@ -35,6 +35,8 @@ export default function StockDetail({ stock, card, muted, t, added, onToggle, on
   const [tf, setTf] = useState<Timeframe>('1M')
   const [points, setPoints] = useState<number[] | null>(null)
   const [an, setAn] = useState<An | null>(null)
+  const [ai, setAi] = useState<string | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
   const symbol = stock.exch === 'NSE' ? `${stock.name}.NS` : stock.name
 
   useEffect(() => {
@@ -56,6 +58,7 @@ export default function StockDetail({ stock, card, muted, t, added, onToggle, on
   useEffect(() => {
     let cancelled = false
     setAn(null)
+    setAi(null)
     fetch(`${API}/analysis?symbol=${encodeURIComponent(symbol)}`)
       .then((r) => r.json())
       .then((d) => {
@@ -66,6 +69,15 @@ export default function StockDetail({ stock, card, muted, t, added, onToggle, on
       cancelled = true
     }
   }, [symbol])
+
+  const loadAi = () => {
+    setAiLoading(true)
+    fetch(`${API}/ai-verdict?symbol=${encodeURIComponent(symbol)}`)
+      .then((r) => r.json())
+      .then((d) => setAi(d.text ?? d.error ?? 'AI summary nahi mila.'))
+      .catch(() => setAi('AI summary abhi load nahi ho paaya. Thodi der baad try karein.'))
+      .finally(() => setAiLoading(false))
+  }
 
   const last = points ? points[points.length - 1] : null
   const first = points ? points[0] : null
@@ -169,6 +181,19 @@ export default function StockDetail({ stock, card, muted, t, added, onToggle, on
             ))}
           </ul>
 
+          <div className="mt-4">
+            {!ai && (
+              <button
+                onClick={loadAi}
+                disabled={aiLoading}
+                className="w-full rounded-lg border border-zinc-600 py-2 text-sm"
+              >
+                {aiLoading ? 'AI soch raha hai...' : 'AI summary dekhein'}
+              </button>
+            )}
+            {ai && <p className="text-sm whitespace-pre-line">{ai}</p>}
+          </div>
+
           <p className={`text-[10px] ${muted} mt-3`}>
             Ye sirf analysis signal hai, buy ya sell ki salah nahi.
           </p>
@@ -176,4 +201,4 @@ export default function StockDetail({ stock, card, muted, t, added, onToggle, on
       )}
     </section>
   )
-}
+            }
