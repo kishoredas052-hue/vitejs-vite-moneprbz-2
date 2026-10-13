@@ -352,10 +352,9 @@ def groq_debug():
     except Exception as e:
         info["error"] = type(e).__name__ + ": " + str(e)[:200]
     return info
-
-    from nifty100 import NIFTY100 as _NIFTY100
-
-
+    
+from nifty100 import NIFTY100 as _NIFTY100
+    
 @app.get("/symbols")
 def symbols(q: str = Query("")):
     ql = q.strip().lower()
