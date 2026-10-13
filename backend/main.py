@@ -353,4 +353,16 @@ def groq_debug():
         info["error"] = type(e).__name__ + ": " + str(e)[:200]
     return info
 
+    from nifty100 import NIFTY100 as _NIFTY100
+
+
+@app.get("/symbols")
+def symbols(q: str = Query("")):
+    ql = q.strip().lower()
+    items = []
+    for name, sym in _NIFTY100.items():
+        if not ql or ql in name.lower() or ql in sym.lower():
+            items.append({"name": name, "symbol": sym})
+    return {"count": len(items), "items": items[:50]}
+
 
