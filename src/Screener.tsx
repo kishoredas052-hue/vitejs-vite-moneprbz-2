@@ -3,6 +3,15 @@ import type { Stock, T } from './data'
 
 const API = 'https://pro-investment-backend.onrender.com'
 
+const POPULAR_NSE = [
+  'RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'SBIN', 'BHARTIARTL', 'ITC',
+  'LT', 'HINDUNILVR', 'KOTAKBANK', 'AXISBANK', 'BAJFINANCE', 'ASIANPAINT', 'MARUTI',
+  'SUNPHARMA', 'TITAN', 'ULTRACEMCO', 'WIPRO', 'NESTLEIND', 'ADANIENT', 'TATAMOTORS',
+  'TATASTEEL', 'ONGC', 'NTPC', 'POWERGRID', 'COALINDIA', 'HCLTECH', 'TECHM', 'JSWSTEEL',
+  'ZOMATO', 'IRCTC', 'DMART', 'HAL', 'BEL', 'VEDL', 'SUZLON',
+]
+const POPULAR_US = ['NVDA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA']
+
 type Result = {
   symbol: string
   price: number
@@ -34,6 +43,8 @@ function toStock(sym: string): Stock {
 }
 
 export default function Screener({ card, muted, onOpen }: Props) {
+  const [q, setQ] = useState('')
+  const [mkt, setMkt] = useState<'NSE' | 'US'>('NSE')
   const [maxRsi, setMaxRsi] = useState(40)
   const [maxPe, setMaxPe] = useState(1000)
   const [trend, setTrend] = useState('any')
@@ -60,12 +71,55 @@ export default function Screener({ card, muted, onOpen }: Props) {
     }
   }, [maxRsi, maxPe, trend])
 
+  const openSearch = () => {
+    const sym = q.trim().toUpperCase().replace(/\.NS$/, '')
+    if (!sym) return
+    onOpen({ name: sym, exch: mkt === 'NSE' ? 'NSE' : 'NASDAQ', price: '', change: 0 })
+    setQ('')
+  }
+
   const chip = (active: boolean) =>
     `px-3 py-1 rounded-full text-xs ${active ? 'bg-violet-600 text-white' : `border border-zinc-600 ${muted}`}`
 
   return (
     <section className="mx-4 mt-6">
-      <h2 className="text-lg font-semibold mb-3">Screener</h2>
+      <h2 className="text-lg font-semibold mb-3">Search</h2>
+
+      <div className={`rounded-2xl ${card} p-4 space-y-3`}>
+        <div className="flex gap-2">
+          <button className={chip(mkt === 'NSE')} onClick={() => setMkt('NSE')}>
+            NSE
+          </button>
+          <button className={chip(mkt === 'US')} onClick={() => setMkt('US')}>
+            US
+          </button>
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') openSearch()
+            }}
+            list="sym-list"
+            placeholder={mkt === 'NSE' ? 'Jaise ZOMATO, IRCTC' : 'Jaise NVDA, AAPL'}
+            className="flex-1 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white outline-none"
+          />
+          <button onClick={openSearch} className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">
+            Kholo
+          </button>
+        </div>
+        <datalist id="sym-list">
+          {(mkt === 'NSE' ? POPULAR_NSE : POPULAR_US).map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+        <p className={`text-xs ${muted}`}>
+          Koi bhi stock type karke Kholo dabayein. Data na mile to chart load nahi hoga.
+        </p>
+      </div>
+
+      <h2 className="text-lg font-semibold mt-6 mb-3">Screener</h2>
 
       <div className={`rounded-2xl ${card} p-4 space-y-3`}>
         <div>
@@ -131,4 +185,4 @@ export default function Screener({ card, muted, onOpen }: Props) {
       </div>
     </section>
   )
-                                      }
+}
