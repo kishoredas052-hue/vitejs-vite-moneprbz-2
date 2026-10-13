@@ -44,7 +44,9 @@ export default function App() {
   const base = settings.dark ? 'bg-zinc-950 text-white' : 'bg-white text-zinc-900'
   const border = settings.dark ? 'border-zinc-800' : 'border-zinc-200'
 
-  const watched = stocks.filter((s) => watch.includes(s.name))
+  const watched: Stock[] = watch.map(
+    (name) => stocks.find((s) => s.name === name) ?? { name, exch: 'NSE', price: '', change: 0 }
+  )
 
   return (
     <div className={`min-h-screen ${base} max-w-md mx-auto pb-24`}>
@@ -59,20 +61,14 @@ export default function App() {
             <Screener card={card} muted={muted} t={t} onOpen={setSelected} searchOnly />
           </section>
 
-          <MarketPulse card={card} muted={muted} />
-
-          <section className="mx-4 mt-6">
-            <h2 className={`text-sm ${muted} mb-3`}>{t.picks}</h2>
-            <StockList
-              items={stocks}
-              card={card}
-              muted={muted}
-              t={t}
-              watch={watch}
-              onToggle={toggleWatch}
-              onOpen={setSelected}
-            />
-          </section>
+          <MarketPulse
+            card={card}
+            muted={muted}
+            t={t}
+            watch={watch}
+            onToggle={toggleWatch}
+            onOpen={setSelected}
+          />
         </>
       )}
 
