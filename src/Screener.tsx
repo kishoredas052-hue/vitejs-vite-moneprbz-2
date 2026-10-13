@@ -20,6 +20,7 @@ type Props = {
   muted: string
   t: T
   onOpen: (s: Stock) => void
+  searchOnly?: boolean
 }
 
 const RSI_OPTIONS = [30, 40, 50, 70]
@@ -35,7 +36,7 @@ function toStock(sym: string): Stock {
   return { name, exch: 'NSE', price: '', change: 0 }
 }
 
-export default function Screener({ card, muted, onOpen }: Props) {
+export default function Screener({ card, muted, onOpen, searchOnly }: Props) {
   const [q, setQ] = useState('')
   const [sugs, setSugs] = useState<Sug[]>([])
   const [mkt, setMkt] = useState<'NSE' | 'US'>('NSE')
@@ -69,6 +70,7 @@ export default function Screener({ card, muted, onOpen }: Props) {
   }, [q, mkt])
 
   useEffect(() => {
+    if (searchOnly) return
     let cancelled = false
     setLoading(true)
     setResults(null)
@@ -86,7 +88,7 @@ export default function Screener({ card, muted, onOpen }: Props) {
     return () => {
       cancelled = true
     }
-  }, [maxRsi, maxPe, trend])
+  }, [maxRsi, maxPe, trend, searchOnly])
 
   const openSymbol = (sym: string) => {
     const clean = sym.trim().toUpperCase().replace(/\.NS$/, '')
@@ -104,59 +106,66 @@ export default function Screener({ card, muted, onOpen }: Props) {
   const chip = (active: boolean) =>
     `px-3 py-1 rounded-full text-xs ${active ? 'bg-violet-600 text-white' : `border border-zinc-600 ${muted}`}`
 
+  const searchBlock = (
+    <div className={`rounded-2xl ${card} p-4 space-y-3`}>
+      <div className="flex gap-2">
+        <button className={chip(mkt === 'NSE')} onClick={() => setMkt('NSE')}>
+          NSE
+        </button>
+        <button className={chip(mkt === 'US')} onClick={() => setMkt('US')}>
+          US
+        </button>
+      </div>
+
+      <div className="relative">
+        <div className="flex gap-2">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') openSymbol(q)
+            }}
+            placeholder={mkt === 'NSE' ? 'Company ya symbol, jaise Ambuja' : 'Jaise NVDA, AAPL'}
+            className="flex-1 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white outline-none"
+          />
+          <button
+            onClick={() => openSymbol(q)}
+            className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white"
+          >
+            Kholo
+          </button>
+        </div>
+
+        {sugs.length > 0 && (
+          <div className="absolute left-0 right-0 mt-1 rounded-lg bg-zinc-800 border border-zinc-700 z-10 max-h-64 overflow-y-auto">
+            {sugs.map((s) => (
+              <button
+                key={s.symbol}
+                onClick={() => openSymbol(s.symbol)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-700"
+              >
+                <span className="font-semibold">{s.symbol}</span>
+                <span className={`ml-2 text-xs ${muted}`}>{s.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <p className={`text-xs ${muted}`}>
+        Company ka naam likhein (jaise Ambuja), dropdown se chunein. Ya symbol seedha likh kar Kholo dabayein.
+      </p>
+    </div>
+  )
+
+  if (searchOnly) {
+    return <div>{searchBlock}</div>
+  }
+
   return (
     <section className="mx-4 mt-6">
       <h2 className="text-lg font-semibold mb-3">Search</h2>
-
-      <div className={`rounded-2xl ${card} p-4 space-y-3`}>
-        <div className="flex gap-2">
-          <button className={chip(mkt === 'NSE')} onClick={() => setMkt('NSE')}>
-            NSE
-          </button>
-          <button className={chip(mkt === 'US')} onClick={() => setMkt('US')}>
-            US
-          </button>
-        </div>
-
-        <div className="relative">
-          <div className="flex gap-2">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') openSymbol(q)
-              }}
-              placeholder={mkt === 'NSE' ? 'Company ya symbol, jaise Ambuja' : 'Jaise NVDA, AAPL'}
-              className="flex-1 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white outline-none"
-            />
-            <button
-              onClick={() => openSymbol(q)}
-              className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white"
-            >
-              Kholo
-            </button>
-          </div>
-
-          {sugs.length > 0 && (
-            <div className="absolute left-0 right-0 mt-1 rounded-lg bg-zinc-800 border border-zinc-700 z-10 max-h-64 overflow-y-auto">
-              {sugs.map((s) => (
-                <button
-                  key={s.symbol}
-                  onClick={() => openSymbol(s.symbol)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-700"
-                >
-                  <span className="font-semibold">{s.symbol}</span>
-                  <span className={`ml-2 text-xs ${muted}`}>{s.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <p className={`text-xs ${muted}`}>
-          Company ka naam likhein (jaise Ambuja), dropdown se chunein. Ya symbol seedha likh kar Kholo dabayein.
-        </p>
-      </div>
+      {searchBlock}
 
       <h2 className="text-lg font-semibold mt-6 mb-3">Screener</h2>
 
