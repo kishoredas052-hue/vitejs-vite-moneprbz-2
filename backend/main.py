@@ -364,4 +364,9 @@ def symbols(q: str = Query("")):
             items.append({"name": name, "symbol": sym})
     return {"count": len(items), "items": items[:50]}
 
+from market_pulse import router as _pulse_router
+app.include_router(_pulse_router)
+
+
+
 
