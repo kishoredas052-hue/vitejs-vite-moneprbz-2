@@ -3,15 +3,6 @@ import type { Stock, T } from './data'
 
 const API = 'https://pro-investment-backend.onrender.com'
 
-const POPULAR_NSE = [
-  'RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'SBIN', 'BHARTIARTL', 'ITC',
-  'LT', 'HINDUNILVR', 'KOTAKBANK', 'AXISBANK', 'BAJFINANCE', 'ASIANPAINT', 'MARUTI',
-  'SUNPHARMA', 'TITAN', 'ULTRACEMCO', 'WIPRO', 'NESTLEIND', 'ADANIENT', 'TATAMOTORS',
-  'TATASTEEL', 'ONGC', 'NTPC', 'POWERGRID', 'COALINDIA', 'HCLTECH', 'TECHM', 'JSWSTEEL',
-  'ZOMATO', 'IRCTC', 'DMART', 'HAL', 'BEL', 'VEDL', 'SUZLON',
-]
-const POPULAR_US = ['NVDA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA']
-
 type Result = {
   symbol: string
   price: number
@@ -21,6 +12,8 @@ type Result = {
   verdict: string
   reasons?: string[]
 }
+
+type Sug = { name: string; symbol: string }
 
 type Props = {
   card: string
@@ -44,12 +37,36 @@ function toStock(sym: string): Stock {
 
 export default function Screener({ card, muted, onOpen }: Props) {
   const [q, setQ] = useState('')
+  const [sugs, setSugs] = useState<Sug[]>([])
   const [mkt, setMkt] = useState<'NSE' | 'US'>('NSE')
   const [maxRsi, setMaxRsi] = useState(40)
   const [maxPe, setMaxPe] = useState(1000)
   const [trend, setTrend] = useState('any')
   const [results, setResults] = useState<Result[] | null>(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const term = q.trim()
+    if (mkt !== 'NSE' || term.length < 2) {
+      setSugs([])
+      return
+    }
+    let cancelled = false
+    const t = setTimeout(() => {
+      fetch(`${API}/symbols?q=${encodeURIComponent(term)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (!cancelled) setSugs(Array.isArray(d.items) ? d.items : [])
+        })
+        .catch(() => {
+          if (!cancelled) setSugs([])
+        })
+    }, 250)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [q, mkt])
 
   useEffect(() => {
     let cancelled = false
@@ -71,11 +88,17 @@ export default function Screener({ card, muted, onOpen }: Props) {
     }
   }, [maxRsi, maxPe, trend])
 
-  const openSearch = () => {
-    const sym = q.trim().toUpperCase().replace(/\.NS$/, '')
-    if (!sym) return
-    onOpen({ name: sym, exch: mkt === 'NSE' ? 'NSE' : 'NASDAQ', price: '', change: 0 })
+  const openSymbol = (sym: string) => {
+    const clean = sym.trim().toUpperCase().replace(/\.NS$/, '')
+    if (!clean) return
+    onOpen({
+      name: clean,
+      exch: mkt === 'NSE' ? 'NSE' : 'NASDAQ',
+      price: '',
+      change: 0,
+    })
     setQ('')
+    setSugs([])
   }
 
   const chip = (active: boolean) =>
@@ -94,28 +117,44 @@ export default function Screener({ card, muted, onOpen }: Props) {
             US
           </button>
         </div>
-        <div className="flex gap-2">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') openSearch()
-            }}
-            list="sym-list"
-            placeholder={mkt === 'NSE' ? 'Jaise ZOMATO, IRCTC' : 'Jaise NVDA, AAPL'}
-            className="flex-1 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white outline-none"
-          />
-          <button onClick={openSearch} className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">
-            Kholo
-          </button>
+
+        <div className="relative">
+          <div className="flex gap-2">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') openSymbol(q)
+              }}
+              placeholder={mkt === 'NSE' ? 'Company ya symbol, jaise Ambuja' : 'Jaise NVDA, AAPL'}
+              className="flex-1 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white outline-none"
+            />
+            <button
+              onClick={() => openSymbol(q)}
+              className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white"
+            >
+              Kholo
+            </button>
+          </div>
+
+          {sugs.length > 0 && (
+            <div className="absolute left-0 right-0 mt-1 rounded-lg bg-zinc-800 border border-zinc-700 z-10 max-h-64 overflow-y-auto">
+              {sugs.map((s) => (
+                <button
+                  key={s.symbol}
+                  onClick={() => openSymbol(s.symbol)}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-700"
+                >
+                  <span className="font-semibold">{s.symbol}</span>
+                  <span className={`ml-2 text-xs ${muted}`}>{s.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <datalist id="sym-list">
-          {(mkt === 'NSE' ? POPULAR_NSE : POPULAR_US).map((s) => (
-            <option key={s} value={s} />
-          ))}
-        </datalist>
+
         <p className={`text-xs ${muted}`}>
-          Koi bhi stock type karke Kholo dabayein. Data na mile to chart load nahi hoga.
+          Company ka naam likhein (jaise Ambuja), dropdown se chunein. Ya symbol seedha likh kar Kholo dabayein.
         </p>
       </div>
 
