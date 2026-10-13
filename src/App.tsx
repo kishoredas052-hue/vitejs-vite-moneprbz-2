@@ -1,13 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { Settings, Timeframe, Tab, User, Stock } from './data'
-import { text, stocks, timeframes, navItems } from './data'
-import LineChart from './LineChart'
+import { text, stocks, navItems } from './data'
 import StockList from './StockList'
 import StockDetail from './StockDetail'
 import ProfileScreen from './ProfileScreen'
 import Screener from './Screener'
-
-const API = 'https://pro-investment-backend.onrender.com'
+import MarketPulse from './MarketPulse'
 
 const defaultSettings: Settings = {
   dark: true,
@@ -26,61 +24,14 @@ function load<T>(key: string, fallback: T): T {
   }
 }
 
-type Nifty = { price: number; change_percent: number }
-
 export default function App() {
   const [tab, setTab] = useState<Tab>('Home')
-  const [tf, setTf] = useState<Timeframe>('1M')
   const [selected, setSelected] = useState<Stock | null>(null)
   const [settings, setSettings] = useState<Settings>(() =>
     load('pit-settings', defaultSettings)
   )
   const [user, setUser] = useState<User | null>(null)
   const [watch, setWatch] = useState<string[]>(() => load('pit-watch', []))
-  const [nifty, setNifty] = useState<Nifty | null>(null)
-  const [hist, setHist] = useState<number[] | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    fetch(`${API}/index/nifty`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled && typeof d.price === 'number') {
-          setNifty({ price: d.price, change_percent: d.change_percent })
-        }
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    fetch(`${API}/history?symbol=${encodeURIComponent('^NSEI')}&tf=${tf}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled && Array.isArray(d.points) && d.points.length > 1) {
-          setHist(d.points)
-        }
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [tf])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('pit-settings', JSON.stringify(settings))
-    } catch {}
-  }, [settings])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('pit-watch', JSON.stringify(watch))
-    } catch {}
-  }, [watch])
 
   const update = (patch: Partial<Settings>) => setSettings((s) => ({ ...s, ...patch }))
 
@@ -95,10 +46,6 @@ export default function App() {
 
   const watched = stocks.filter((s) => watch.includes(s.name))
 
-  const niftyPrice = nifty
-    ? nifty.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : '...'
-
   return (
     <div className={`min-h-screen ${base} max-w-md mx-auto pb-24`}>
       <header className="flex items-center justify-between px-5 pt-6">
@@ -108,34 +55,11 @@ export default function App() {
 
       {!selected && tab === 'Home' && (
         <>
-          <section className={`mx-4 mt-5 rounded-2xl ${card} p-5`}>
-            <p className={`text-sm ${muted}`}>{t.nifty}</p>
-            <p className="text-3xl font-bold mt-1">{niftyPrice}</p>
-            {nifty && (
-              <p
-                className={
-                  nifty.change_percent >= 0 ? 'text-green-400 text-sm mt-1' : 'text-red-400 text-sm mt-1'
-                }
-              >
-                {nifty.change_percent >= 0 ? '+' : ''}
-                {nifty.change_percent.toFixed(2)}%
-              </p>
-            )}
-
-            {hist && <LineChart data={hist} />}
-
-            <div className="flex justify-between mt-4 text-sm">
-              {timeframes.map((x) => (
-                <button
-                  key={x}
-                  onClick={() => setTf(x)}
-                  className={`px-3 py-1 rounded-full ${tf === x ? 'bg-violet-600 text-white' : muted}`}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
+          <section className="mx-4 mt-5">
+            <Screener card={card} muted={muted} t={t} onOpen={setSelected} searchOnly />
           </section>
+
+          <MarketPulse card={card} muted={muted} />
 
           <section className="mx-4 mt-6">
             <h2 className={`text-sm ${muted} mb-3`}>{t.picks}</h2>
@@ -231,4 +155,4 @@ export default function App() {
       </nav>
     </div>
   )
-}
+            }
