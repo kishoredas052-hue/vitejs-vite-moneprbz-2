@@ -255,3 +255,71 @@ def verdict(symbol: str = Query(...)):
         return {"symbol": symbol, "error": err}
     _AI_CACHE[symbol] = (now, text)
     return {"symbol": symbol, "text": text, "cached": False}
+
+import json as _json
+import time as _time
+import urllib.request as _urlreq
+import urllib.error as _urlerr
+
+_AI_CACHE2 = {}
+_AI_TTL2 = 3600
+
+
+def _groq_text(prompt: str):
+    import os
+    key = os.environ.get("GROQ_API_KEY", "")
+    model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+    if not key:
+        return None, "GROQ_API_KEY set nahi hai (Render Environment mein add karein)"
+    body = _json.dumps({
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 400,
+        "temperature": 0.3,
+    }).encode("utf-8")
+    req = _urlreq.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {key}",
+            "User-Agent": "pro-investment-terminal/1.0",
+        },
+    )
+    try:
+        with _urlreq.urlopen(req, timeout=40) as resp:
+            data = _json.loads(resp.read().decode("utf-8"))
+        text = data["choices"][0]["message"]["content"]
+        return text.strip(), None
+    except _urlerr.HTTPError as e:
+        return None, f"Groq error {e.code}: key ya model check karein"
+    except Exception as e:
+        return None, f"AI call fail: {type(e).__name__}"
+
+
+@app.get("/ai-verdict")
+def ai_verdict(symbol: str = Query(...)):
+    now = _time.time()
+    cached = _AI_CACHE2.get(symbol)
+    if cached and now - cached[0] < _AI_TTL2:
+        return {"symbol": symbol, "text": cached[1], "cached": True}
+
+    a = _analyze(symbol)
+    if a is None:
+        return {"symbol": symbol, "error": "analysis data nahi mila"}
+
+    facts = {k: a.get(k) for k in ["price", "sma20", "sma50", "rsi", "pe", "roe", "verdict", "reasons"]}
+    prompt = (
+        "Tum ek stock analysis assistant ho. Neeche diye data se 4-5 chhoti lines mein "
+        "Hinglish (Roman Hindi + English) mein summary likho: trend, momentum (RSI), "
+        "valuation (PE), aur ek main risk. Koi buy ya sell ki salah mat do. "
+        "Aakhir mein likho: 'Ye sirf analysis hai, investment advice nahi.'\n\n"
+        f"Stock: {symbol}\nData: {_json.dumps(facts, ensure_ascii=False)}"
+    )
+    text, err = _groq_text(prompt)
+    if err:
+        return {"symbol": symbol, "error": err}
+    _AI_CACHE2[symbol] = (now, text)
+    return {"symbol": symbol, "text": text, "cached": False}
+
+
