@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Settings, Timeframe, Tab, User, Stock } from './data'
+import type { Settings, Tab, User, Stock } from './data'
 import { text, stocks, navItems } from './data'
 import StockList from './StockList'
 import StockDetail from './StockDetail'
