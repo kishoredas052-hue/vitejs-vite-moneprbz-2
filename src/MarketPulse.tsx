@@ -37,8 +37,7 @@ export default function MarketPulse({ card, muted }: Props) {
 
   useEffect(() => {
     let cancelled = false
-    fetch(`${API}/market-pulse`)
-      .then((r) => r.json())
+        getPulse()
       .then((d) => {
         if (!cancelled) setData(d)
       })
