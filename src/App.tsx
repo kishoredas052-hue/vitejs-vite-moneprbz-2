@@ -73,6 +73,15 @@ export default function App() {
             onToggle={toggleWatch}
             onOpen={setSelected}
           />
+
+          <Movers
+            card={card}
+            muted={muted}
+            t={t}
+            watch={watch}
+            onToggle={toggleWatch}
+            onOpen={setSelected}
+          />
         </>
       )}
 
