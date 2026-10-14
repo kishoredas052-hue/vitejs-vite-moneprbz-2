@@ -367,6 +367,9 @@ def symbols(q: str = Query("")):
 from market_pulse import router as _pulse_router
 app.include_router(_pulse_router)
 
+from top_picks import router as _picks_router
+app.include_router(_picks_router)
+
 
 
 
