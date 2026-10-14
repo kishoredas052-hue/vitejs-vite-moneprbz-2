@@ -121,8 +121,7 @@ def _compute():
     rows.sort(key=lambda r: (r["score"], r["ret20"]), reverse=True)
     top = rows[:10]
 
-    with ThreadPoolExecutor(max_workers=5) as ex:
-        funds = list(ex.map(lambda r: _fund(r["symbol"]), top))
+        funds = [(None, None) for _ in top]
 
     for r, (pe, roe) in zip(top, funds):
         r["pe"] = pe
