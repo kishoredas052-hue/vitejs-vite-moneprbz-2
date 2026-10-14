@@ -7,6 +7,7 @@ import ProfileScreen from './ProfileScreen'
 import Screener from './Screener'
 import MarketPulse from './MarketPulse'
 import TopPicks from './TopPicks'
+import Movers from './Movers'
 
 const defaultSettings: Settings = {
   dark: true,
