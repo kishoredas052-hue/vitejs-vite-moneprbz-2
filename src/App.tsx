@@ -6,6 +6,7 @@ import StockDetail from './StockDetail'
 import ProfileScreen from './ProfileScreen'
 import Screener from './Screener'
 import MarketPulse from './MarketPulse'
+import TopPicks from './TopPicks'
 
 const defaultSettings: Settings = {
   dark: true,
@@ -61,7 +62,9 @@ export default function App() {
             <Screener card={card} muted={muted} t={t} onOpen={setSelected} searchOnly />
           </section>
 
-          <MarketPulse
+          <MarketPulse card={card} muted={muted} />
+
+          <TopPicks
             card={card}
             muted={muted}
             t={t}
