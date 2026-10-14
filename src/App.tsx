@@ -8,6 +8,7 @@ import Screener from './Screener'
 import MarketPulse from './MarketPulse'
 import TopPicks from './TopPicks'
 import Movers from './Movers'
+import Alerts from './Alerts'
 
 const defaultSettings: Settings = {
   dark: true,
@@ -89,7 +90,11 @@ export default function App() {
         <>
           <section className="mx-4 mt-6">
             <h2 className="text-lg font-semibold mb-3">{t.stocks}</h2>
-            <StockList
+            {watched.length > 0 && <Alerts card={card} muted={muted} items={watched} />}
+            watched.length === 0 ? (
+            <p className={`text-sm ${muted} mt-2`}>{t.watchEmpty}</p>
+          ) : (
+             <StockList
               items={stocks}
               card={card}
               muted={muted}
