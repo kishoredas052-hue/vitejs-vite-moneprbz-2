@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-const API = 'https://pro-investment-backend.onrender.com'
+import { getPulse } from './pulseApi'
 
 type Pulse = {
   mood: string
