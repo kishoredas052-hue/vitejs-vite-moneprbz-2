@@ -90,3 +90,14 @@ def test_telegram(key: str = ""):
         return {"error": "bad key"}
     ok = _send("Pro Investment Terminal: test message")
     return {"sent": ok}
+    @router.get("/alerts-debug")
+def alerts_debug(key: str = ""):
+    secret = os.environ.get("ALERT_KEY") or ""
+    return {
+        "env_key_set": bool(secret),
+        "env_key_length": len(secret),
+        "url_key_length": len(key),
+        "token_set": bool(os.environ.get("TELEGRAM_TOKEN")),
+        "chat_id_set": bool(os.environ.get("TELEGRAM_CHAT_ID")),
+        "watchlist_set": bool(os.environ.get("WATCHLIST")),
+    }
