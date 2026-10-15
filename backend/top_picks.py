@@ -1,5 +1,4 @@
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 import yfinance as yf
 from fastapi import APIRouter
@@ -9,14 +8,6 @@ router = APIRouter()
 
 _CACHE = {"ts": 0.0, "data": None}
 _TTL = 900
-
-
-def _num(v):
-    try:
-        f = float(v)
-        return None if f != f else round(f, 2)
-    except Exception:
-        return None
 
 
 def _tickers():
@@ -57,17 +48,6 @@ def _tech(last, sma20, sma50, rsi):
         score += 1
         reasons.append("RSI 40-70 range mein hai")
     return score, reasons
-
-
-def _fund(sym):
-    try:
-        info = yf.Ticker(sym + ".NS").info or {}
-    except Exception:
-        info = {}
-    pe = _num(info.get("trailingPE"))
-    roe_raw = info.get("returnOnEquity")
-    roe = _num(roe_raw * 100) if isinstance(roe_raw, (int, float)) else None
-    return pe, roe
 
 
 def _verdict(score):
@@ -113,35 +93,16 @@ def _compute():
             "rsi": round(rsi, 1),
             "ret20": round(ret20, 1),
             "score": score,
+            "verdict": _verdict(score),
             "reasons": reasons,
             "pe": None,
             "roe": None,
         })
 
     rows.sort(key=lambda r: (r["score"], r["ret20"]), reverse=True)
-    top = rows[:10]
-
-        funds = [(None, None) for _ in top]
-
-    for r, (pe, roe) in zip(top, funds):
-        r["pe"] = pe
-        r["roe"] = roe
-        if pe is not None:
-            if 0 < pe <= 25:
-                r["score"] += 1
-                r["reasons"].append("PE 25 se kam hai")
-            elif pe > 40:
-                r["score"] -= 1
-                r["reasons"].append("PE 40 se zyada hai")
-        if roe is not None and roe >= 15:
-            r["score"] += 1
-            r["reasons"].append("ROE 15% se zyada hai")
-        r["verdict"] = _verdict(r["score"])
-
-    top.sort(key=lambda r: (r["score"], r["ret20"]), reverse=True)
 
     return {
-        "picks": top[:5],
+        "picks": rows[:5],
         "scanned": len(rows),
         "updated": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
