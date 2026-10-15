@@ -90,11 +90,7 @@ export default function App() {
         <>
           <section className="mx-4 mt-6">
             <h2 className="text-lg font-semibold mb-3">{t.stocks}</h2>
-            {watched.length > 0 && <Alerts card={card} muted={muted} items={watched} />}
-            watched.length === 0 ? (
-            <p className={`text-sm ${muted} mt-2`}>{t.watchEmpty}</p>
-          ) : (
-             <StockList
+            <StockList
               items={stocks}
               card={card}
               muted={muted}
@@ -111,6 +107,7 @@ export default function App() {
       {!selected && tab === 'Watchlist' && (
         <section className="mx-4 mt-6">
           <h2 className="text-lg font-semibold mb-3">{t.watchlist}</h2>
+          {watched.length > 0 && <Alerts card={card} muted={muted} items={watched} />}
           {watched.length === 0 ? (
             <p className={`text-sm ${muted} mt-2`}>{t.watchEmpty}</p>
           ) : (
