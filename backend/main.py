@@ -369,7 +369,8 @@ app.include_router(_pulse_router)
 
 from top_picks import router as _picks_router
 app.include_router(_picks_router)
-
+from alerts_bot import router as _alerts_router
+app.include_router(_alerts_router)
 
 
 
