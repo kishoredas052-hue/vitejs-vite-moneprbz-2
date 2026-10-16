@@ -101,3 +101,35 @@ def alerts_debug(key: str = ""):
         "chat_id_set": bool(os.environ.get("TELEGRAM_CHAT_ID")),
         "watchlist_set": bool(os.environ.get("WATCHLIST")),
     }
+@router.get("/telegram-debug")
+def telegram_debug(key: str = ""):
+    if not _authorized(key):
+    return {"error": "bad key"}
+    token = os.environ.get("TELEGRAM_TOKEN") or ""
+    chat = os.environ.get("TELEGRAM_CHAT_ID") or ""
+    out = {
+        "token_length": len(token),
+        "token_has_colon": ":" in token,
+        "token_has_space": token != token.strip() or " " in token,
+        "chat_id_is_number": chat.strip().lstrip("-").isdigit(),
+        "chat_id_has_space": chat != chat.strip(),
+    }
+    try:
+        url = "https://api.telegram.org/bot" + token.strip() + "/getMe"
+        urllib.request.urlopen(url, timeout=10)
+        out["getMe"] = "ok"
+    except Exception as e:
+        out["getMe"] = type(e).__name__ + ": " + str(e)[:100]
+    try:
+        data = urllib.parse.urlencode(
+            {"chat_id": chat.strip(), "text": "debug test"}
+        ).encode()
+        url = "https://api.telegram.org/bot" + token.strip() + "/sendMessage"
+        urllib.request.urlopen(url, data=data, timeout=10)
+        out["sendMessage"] = "ok"
+    except urllib.error.HTTPError as e:
+        out["sendMessage"] = "HTTP " + str(e.code) + " " + e.read().decode()[:150]
+    except Exception as e:
+        out["sendMessage"] = type(e).__name__ + ": " + str(e)[:100]
+    return out 
+
