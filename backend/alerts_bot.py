@@ -62,9 +62,11 @@ def _authorized(key):
 
 
 @router.get("/run-alerts")
-def run_alerts(key: str = ""):
+def run_alerts(key: str = "", force: str = ""):
     if not _authorized(key):
         return {"error": "bad key"}
+    if not force and not _market_open():
+        return {"skipped": "market closed"}
     raw = os.environ.get("WATCHLIST", "")
     symbols = [s.strip().upper() for s in raw.split(",") if s.strip()]
     today = time.strftime("%Y-%m-%d")
@@ -102,7 +104,12 @@ def alerts_debug(key: str = ""):
         "watchlist_set": bool(os.environ.get("WATCHLIST")),
     }
 
-@router.get("/telegram-debug")
+def _market_open():
+    ist = time.gmtime(time.time() + 19800)
+    if ist.tm_wday > 4:
+        return False
+    minutes = ist.tm_hour * 60 + ist.tm_min
+    return 9 * 60 <= minutes <= 15 * 60 + 45@router.get("/telegram-debug")
 def telegram_debug(key: str = ""):
     if not _authorized(key):
         return {"error": "bad key"}
