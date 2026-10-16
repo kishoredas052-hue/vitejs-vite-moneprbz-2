@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Settings, Tab, User, Stock } from './data'
 import { text, stocks, navItems } from './data'
 import StockList from './StockList'
@@ -35,6 +35,26 @@ export default function App() {
   )
   const [user, setUser] = useState<User | null>(null)
   const [watch, setWatch] = useState<string[]>(() => load('pit-watch', []))
+  const [etfs, setEtfs] = useState<Stock[]>([])
+
+  useEffect(() => {
+    if (tab === 'Stocks') {
+      fetch('https://pro-investment-backend.onrender.com/screener')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.results) {
+            const formattedEtfs: Stock[] = data.results.map((item: any) => ({
+              name: item.symbol,
+              exch: 'NSE',
+              price: item.price.toString(),
+              change: item.change_percent || 0,
+            }))
+            setEtfs(formattedEtfs)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [tab])
 
   const update = (patch: Partial<Settings>) => setSettings((s) => ({ ...s, ...patch }))
 
@@ -89,9 +109,9 @@ export default function App() {
       {!selected && tab === 'Stocks' && (
         <>
           <section className="mx-4 mt-6">
-            <h2 className="text-lg font-semibold mb-3">{t.stocks}</h2>
+            <h2 className="text-lg font-semibold mb-3">ETFs & Market Screen</h2>
             <StockList
-              items={stocks}
+              items={etfs}
               card={card}
               muted={muted}
               t={t}
