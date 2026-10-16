@@ -363,3 +363,25 @@ def symbols(q: str = Query("")):
         if not ql or ql in name.lower() or ql in sym.lower():
             items.append({"name": name, "symbol": sym})
     return {"count": len(items), "items": items[:50]}
+
+from nifty100 import NIFTY100 as _NIFTY100, ETFS_UNIVERSE
+
+@app.get("/etfs")
+def etfs_screener():
+    # ETFs universe par technical analysis run karne ke liye
+    results = []
+    for name, sym in ETFS_UNIVERSE.items():
+        a = _analyze(sym + ".NS")
+        if a:
+            results.append({
+                "name": name,
+                "symbol": sym,
+                "price": a["price"],
+                "change_percent": a.get("change_percent", 0),
+                "rsi": a["rsi"],
+                "score": a["score"],
+                "verdict": a["verdict"]
+            })
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return {"count": len(results), "results": results}
+    
