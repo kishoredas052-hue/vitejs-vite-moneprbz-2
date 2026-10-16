@@ -101,10 +101,11 @@ def alerts_debug(key: str = ""):
         "chat_id_set": bool(os.environ.get("TELEGRAM_CHAT_ID")),
         "watchlist_set": bool(os.environ.get("WATCHLIST")),
     }
+
 @router.get("/telegram-debug")
 def telegram_debug(key: str = ""):
     if not _authorized(key):
-    return {"error": "bad key"}
+        return {"error": "bad key"}
     token = os.environ.get("TELEGRAM_TOKEN") or ""
     chat = os.environ.get("TELEGRAM_CHAT_ID") or ""
     out = {
@@ -131,5 +132,4 @@ def telegram_debug(key: str = ""):
         out["sendMessage"] = "HTTP " + str(e.code) + " " + e.read().decode()[:150]
     except Exception as e:
         out["sendMessage"] = type(e).__name__ + ": " + str(e)[:100]
-    return out 
-
+    return out
