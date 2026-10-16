@@ -1,6 +1,15 @@
+import json as _json
+import os
+import time as _time
+import urllib.error as _urlerr
+import urllib.request as _urlreq
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
+
+from nifty100 import NIFTY100 as _NIFTY100
+from market_pulse import router as market_pulse_router
+from top_picks import router as top_picks_router, get_all_scored_stocks
 
 app = FastAPI()
 
@@ -10,6 +19,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(market_pulse_router)
+app.include_router(top_picks_router)
 
 TF_CONFIG = {
     "1D": ("1d", "5m"),
@@ -56,6 +68,8 @@ def _analyze(symbol: str):
 
     close = hist["Close"].dropna()
     last = float(close.iloc[-1])
+    prev = float(close.iloc[-2]) if len(close) > 1 else last
+    change_pct = round((last - prev) / prev * 100, 2)
 
     delta = close.diff()
     gain = delta.clip(lower=0).rolling(14).mean()
@@ -120,6 +134,7 @@ def _analyze(symbol: str):
     return {
         "symbol": symbol,
         "price": round(last, 2),
+        "change_percent": change_pct,
         "sma20": sma20,
         "sma50": sma50,
         "rsi": rsi,
@@ -177,39 +192,30 @@ def screener(
     max_pe: float = Query(1000),
     trend: str = Query("any"),
 ):
+    try:
+        rows, updated_str = get_all_scored_stocks()
+    except Exception as e:
+        return {"count": 0, "results": [], "error": str(e)}
+
     results = []
-    for sym in UNIVERSE:
-        try:
-            a = _analyze(sym)
-        except Exception:
-            a = None
-        if a is None:
-            continue
+    for a in rows:
         rsi = a["rsi"]
-        pe = a["pe"]
         if rsi is None or rsi < min_rsi or rsi > max_rsi:
-            continue
-        if pe is not None and pe > max_pe:
             continue
         if trend == "up" and not (a["sma50"] and a["price"] > a["sma50"]):
             continue
         if trend == "down" and not (a["sma50"] and a["price"] < a["sma50"]):
             continue
         results.append(a)
-    results.sort(key=lambda x: x["score"], reverse=True)
-    return {"count": len(results), "results": results}
 
-import json as _json
-import time as _time
-import urllib.request as _urlreq
-import urllib.error as _urlerr
+    return {"count": len(results), "results": results, "updated": updated_str}
+
 
 _AI_CACHE = {}
 _AI_TTL = 3600
 
 
 def _gemini_text(prompt: str):
-    import os
     key = os.environ.get("GEMINI_API_KEY", "")
     model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
     if not key:
@@ -256,17 +262,12 @@ def verdict(symbol: str = Query(...)):
     _AI_CACHE[symbol] = (now, text)
     return {"symbol": symbol, "text": text, "cached": False}
 
-import json as _json
-import time as _time
-import urllib.request as _urlreq
-import urllib.error as _urlerr
 
 _AI_CACHE2 = {}
 _AI_TTL2 = 3600
 
 
 def _groq_text(prompt: str):
-    import os
     key = os.environ.get("GROQ_API_KEY", "")
     model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
     if not key:
@@ -322,9 +323,9 @@ def ai_verdict(symbol: str = Query(...)):
     _AI_CACHE2[symbol] = (now, text)
     return {"symbol": symbol, "text": text, "cached": False}
 
+
 @app.get("/groq-debug")
 def groq_debug():
-    import os
     key = os.environ.get("GROQ_API_KEY", "")
     model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
     info = {"key_len": len(key), "model_repr": repr(model)}
@@ -334,7 +335,7 @@ def groq_debug():
         "max_tokens": 5,
     }).encode("utf-8")
     req = _urlreq.Request(
-        "https://api.groq.com/openai/v1/chat/completions",
+        "https://api.openai.com/v1/chat/completions", # or groq endpoint
         data=body,
         headers={
             "Content-Type": "application/json",
@@ -343,7 +344,7 @@ def groq_debug():
         },
     )
     try:
-        with _urlreq.urlopen(req, timeout=40) as resp:
+        with _urlreq.urlopen("https://api.groq.com/openai/v1/chat/completions", data=body, timeout=40) as resp:
             info["status"] = resp.status
             info["body"] = resp.read().decode("utf-8")[:400]
     except _urlerr.HTTPError as e:
@@ -352,9 +353,8 @@ def groq_debug():
     except Exception as e:
         info["error"] = type(e).__name__ + ": " + str(e)[:200]
     return info
-    
-from nifty100 import NIFTY100 as _NIFTY100
-    
+
+
 @app.get("/symbols")
 def symbols(q: str = Query("")):
     ql = q.strip().lower()
@@ -363,14 +363,3 @@ def symbols(q: str = Query("")):
         if not ql or ql in name.lower() or ql in sym.lower():
             items.append({"name": name, "symbol": sym})
     return {"count": len(items), "items": items[:50]}
-
-from market_pulse import router as _pulse_router
-app.include_router(_pulse_router)
-
-from top_picks import router as _picks_router
-app.include_router(_picks_router)
-from alerts_bot import router as _alerts_router
-app.include_router(_alerts_router)
-
-
-
