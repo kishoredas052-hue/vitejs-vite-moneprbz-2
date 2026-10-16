@@ -1,20 +1,60 @@
+import threading
 import time
+from datetime import datetime, timedelta, timezone
 import yfinance as yf
 from fastapi import APIRouter
 from nifty100 import NIFTY100
 
 router = APIRouter()
 
-_CACHE = {"ts": 0.0, "data": None}
-_TTL = 900
+_IST = timezone(timedelta(hours=5, minutes=30))
+_LOCK = threading.Lock()
+_SHARED_RAW = {"ts": 0.0, "df": None, "tickers": [], "updated": ""}
+_PULSE_CACHE = {"ts": 0.0, "data": None}
+_TTL = 900  # 15 minutes
 
 
-def _tickers():
+def _ist_now_str():
+    return datetime.now(_IST).strftime("%Y-%m-%d %H:%M:%S IST")
+
+
+def get_unique_symbols():
     seen = []
     for sym in NIFTY100.values():
         if sym not in seen:
             seen.append(sym)
-    return [s + ".NS" for s in seen]
+    return seen
+
+
+def get_shared_market_df():
+    """Downloads 248 NSE tickers + ^NSEI only ONCE and shares across all endpoints."""
+    now = time.time()
+    if _SHARED_RAW["df"] is not None and (now - _SHARED_RAW["ts"] < _TTL):
+        return _SHARED_RAW["df"], _SHARED_RAW["tickers"], _SHARED_RAW["updated"]
+
+    with _LOCK:
+        now = time.time()
+        if _SHARED_RAW["df"] is not None and (now - _SHARED_RAW["ts"] < _TTL):
+            return _SHARED_RAW["df"], _SHARED_RAW["tickers"], _SHARED_RAW["updated"]
+
+        symbols = get_unique_symbols()
+        ns_tickers = [s + ".NS" for s in symbols]
+        all_tickers = ns_tickers + ["^NSEI"]
+
+        df = yf.download(
+            all_tickers,
+            period="6mo",
+            interval="1d",
+            group_by="ticker",
+            threads=True,
+            progress=False,
+        )
+        updated_str = _ist_now_str()
+        _SHARED_RAW["ts"] = time.time()
+        _SHARED_RAW["df"] = df
+        _SHARED_RAW["tickers"] = symbols
+        _SHARED_RAW["updated"] = updated_str
+        return df, symbols, updated_str
 
 
 def _mood(nifty):
@@ -32,15 +72,8 @@ def _mood(nifty):
 
 
 def _compute():
-    tickers = _tickers() + ["^NSEI"]
-    df = yf.download(
-        tickers,
-        period="6mo",
-        interval="1d",
-        group_by="ticker",
-        threads=True,
-        progress=False,
-    )
+    df, symbols, updated_str = get_shared_market_df()
+    tickers = [s + ".NS" for s in symbols] + ["^NSEI"]
 
     rows = []
     above = 0
@@ -88,19 +121,21 @@ def _compute():
         },
         "gainers": rows[:5],
         "losers": list(reversed(rows[-5:])) if rows else [],
-        "updated": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "all_stocks": rows,
+        "updated": updated_str,
     }
 
 
 @router.get("/market-pulse")
 def market_pulse():
     now = time.time()
-    if _CACHE["data"] and now - _CACHE["ts"] < _TTL:
-        return {**_CACHE["data"], "cached": True}
+    if _PULSE_CACHE["data"] and now - _PULSE_CACHE["ts"] < _TTL:
+        return {**_PULSE_CACHE["data"], "cached": True}
     try:
         data = _compute()
     except Exception as e:
         return {"error": type(e).__name__ + ": " + str(e)[:200]}
-    _CACHE["ts"] = now
-    _CACHE["data"] = data
+    _PULSE_CACHE["ts"] = now
+    _PULSE_CACHE["data"] = data
     return {**data, "cached": False}
+    
