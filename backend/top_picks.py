@@ -1,21 +1,11 @@
 import time
-
-import yfinance as yf
 from fastapi import APIRouter
-from nifty100 import NIFTY100
+from market_pulse import get_shared_market_df
 
 router = APIRouter()
 
 _CACHE = {"ts": 0.0, "data": None}
 _TTL = 900
-
-
-def _tickers():
-    seen = []
-    for sym in NIFTY100.values():
-        if sym not in seen:
-            seen.append(sym)
-    return seen
 
 
 def _rsi(close):
@@ -26,72 +16,96 @@ def _rsi(close):
     return None if v != v else float(v)
 
 
-def _tech(last, sma20, sma50, rsi):
+def _tech(last, volume, vol_sma20, ema44, sma200, rsi):
     score = 0
     reasons = []
-    if last > sma50:
+
+    # 1. Trend Strategy: 44 EMA & 200 SMA Alignment
+    if ema44 > sma200:
         score += 1
-        reasons.append("Price 50-din average ke upar hai")
+        reasons.append("Long-term Uptrend: 44 EMA > 200 SMA")
+    if last > ema44:
+        score += 1
+        reasons.append("Price 44 EMA ke upar bullish hai")
     else:
         score -= 1
-        reasons.append("Price 50-din average ke neeche hai")
-    if sma20 > sma50:
+        reasons.append("Price 44 EMA ke neeche hai")
+
+    # 2. Volume Surge Strategy (Breakout detection)
+    if vol_sma20 and vol_sma20 > 0:
+        if volume >= (2.0 * vol_sma20):
+            score += 2
+            reasons.append("High Volume Surge: 2x average volume")
+        elif volume >= (1.2 * vol_sma20):
+            score += 1
+            reasons.append("Volume expansion visible hai")
+
+    # 3. RSI Momentum & Reversal Strategy
+    if 55 <= rsi <= 70:
+        score += 2
+        reasons.append("Strong RSI Momentum (55-70 range)")
+    elif 40 <= rsi < 55:
         score += 1
-        reasons.append("20-din average 50-din ke upar hai")
-    if rsi >= 70:
-        score -= 1
-        reasons.append("RSI 70 se upar: overbought")
+        reasons.append("RSI Bullish zone mein hai")
     elif rsi <= 30:
         score += 1
-        reasons.append("RSI 30 se neeche: oversold")
-    elif rsi >= 40:
-        score += 1
-        reasons.append("RSI 40-70 range mein hai")
+        reasons.append("RSI Oversold: Reversal opportunity")
+    elif rsi >= 70:
+        score -= 1
+        reasons.append("RSI Overbought zone")
+
     return score, reasons
 
 
 def _verdict(score):
-    if score >= 3:
+    if score >= 4:
+        return "Strong Positive Bias"
+    elif score >= 2:
         return "Positive bias"
-    if score >= 1:
+    if score >= 0:
         return "Neutral"
     return "Weak bias"
 
 
-def _compute():
-    tickers = _tickers()
-    df = yf.download(
-        [t + ".NS" for t in tickers],
-        period="6mo",
-        interval="1d",
-        group_by="ticker",
-        threads=True,
-        progress=False,
-    )
+def get_all_scored_stocks():
+    df, tickers, updated_str = get_shared_market_df()
 
     rows = []
     for sym in tickers:
         try:
-            close = df[sym + ".NS"]["Close"].dropna()
+            hist = df[sym + ".NS"]
+            close = hist["Close"].dropna()
+            vol = hist["Volume"].dropna()
         except Exception:
             continue
-        if len(close) < 52:
+        if len(close) < 200:
             continue
+            
         last = float(close.iloc[-1])
         prev = float(close.iloc[-2])
-        sma20 = float(close.rolling(20).mean().iloc[-1])
-        sma50 = float(close.rolling(50).mean().iloc[-1])
+        volume = float(vol.iloc[-1]) if len(vol) > 0 else 0
+        vol_sma20 = float(vol.rolling(20).mean().iloc[-1]) if len(vol) >= 20 else 0
+        
+        ema44 = float(close.ewm(span=44, adjust=False).mean().iloc[-1])
+        sma200 = float(close.rolling(200).mean().iloc[-1])
         rsi = _rsi(close)
+        
         if rsi is None:
             continue
-        ret20 = (last / float(close.iloc[-21]) - 1) * 100
-        score, reasons = _tech(last, sma20, sma50, rsi)
+
+        chg_pct = round((last - prev) / prev * 100, 2)
+        ret20 = round((last / float(close.iloc[-21]) - 1) * 100, 1)
+        
+        score, reasons = _tech(last, volume, vol_sma20, ema44, sma200, rsi)
+
         rows.append({
             "symbol": sym,
             "price": round(last, 2),
-            "change_percent": round((last - prev) / prev * 100, 2),
+            "change_percent": chg_pct,
+            "ema44": round(ema44, 2),
+            "sma200": round(sma200, 2),
             "rsi": round(rsi, 1),
-            "ret20": round(ret20, 1),
+            "ret20": ret20,
             "score": score,
             "verdict": _verdict(score),
             "reasons": reasons,
@@ -99,12 +113,25 @@ def _compute():
             "roe": None,
         })
 
-    rows.sort(key=lambda r: (r["score"], r["ret20"]), reverse=True)
+    # Smart Multi-factor Sorting
+    rows.sort(
+        key=lambda r: (
+            r["score"],
+            r["change_percent"] > 0,
+            r["ret20"],
+            r["change_percent"],
+        ),
+        reverse=True,
+    )
+    return rows, updated_str
 
+
+def _compute():
+    rows, updated_str = get_all_scored_stocks()
     return {
         "picks": rows[:5],
         "scanned": len(rows),
-        "updated": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "updated": updated_str,
     }
 
 
@@ -112,7 +139,7 @@ def _compute():
 def top_picks():
     now = time.time()
     if _CACHE["data"] and now - _CACHE["ts"] < _TTL:
-        return {**_CACHE["data"], "cached": True}
+        return {**_Cache["data"], "cached": True}
     try:
         data = _compute()
     except Exception as e:
@@ -120,3 +147,4 @@ def top_picks():
     _CACHE["ts"] = now
     _CACHE["data"] = data
     return {**data, "cached": False}
+        
