@@ -39,7 +39,7 @@ export default function App() {
 
   useEffect(() => {
     if (tab === 'Stocks') {
-      fetch('https://pro-investment-backend.onrender.com/screener')
+      fetch('https://pro-investment-backend.onrender.com/etfs')
         .then((res) => res.json())
         .then((data) => {
           if (data && data.results) {
