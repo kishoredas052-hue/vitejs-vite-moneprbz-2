@@ -1,18 +1,22 @@
-
-import { useState } from 'react'
-import type { Settings, T, User, RiskLevel } from './data'
+           
+import { useState } from 'react';
+import type { Settings, T, User, RiskLevel } from './data';
 
 type Props = {
-  t: T
-  settings: Settings
-  update: (patch: Partial<Settings>) => void
-  user: User | null
-  setUser: (u: User | null) => void
-  card: string
-  muted: string
-}
+  t: T;
+  settings: Settings;
+  update: (patch: Partial<Settings>) => void;
+  user: User | null;
+  setUser: (user: User | null) => void;
+  card: string;
+  muted: string;
+};
 
-const riskOptions: { value: RiskLevel; label: string; detail: string }[] = [
+const riskOptions: {
+  value: RiskLevel;
+  label: string;
+  detail: string;
+}[] = [
   {
     value: 'conservative',
     label: 'Conservative',
@@ -28,7 +32,7 @@ const riskOptions: { value: RiskLevel; label: string; detail: string }[] = [
     label: 'Aggressive',
     detail: 'Higher volatility tolerate kar sakte hain',
   },
-]
+];
 
 export default function ProfileScreen({
   t,
@@ -39,60 +43,57 @@ export default function ProfileScreen({
   card,
   muted,
 }: Props) {
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [formError, setFormError] = useState('')
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [formError, setFormError] = useState('');
 
-  const btn = (active: boolean) =>
+  const buttonClass = (active: boolean) =>
     `rounded-xl border px-3 py-2 text-sm font-medium transition ${
       active
         ? 'border-violet-500 bg-violet-600 text-white'
         : `border-white/10 ${muted} hover:border-violet-400/50`
-    }`
+    }`;
 
   const inputClass =
-    'w-full rounded-xl border border-white/10 bg-zinc-900/80 px-3 py-3 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20'
+    'w-full rounded-xl border border-white/10 bg-zinc-900/80 px-3 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-violet-500';
 
-  const sectionTitle = 'text-base font-bold tracking-tight'
+  const sectionTitle = 'text-base font-bold tracking-tight';
 
   function signIn() {
-    const cleanName = name.trim()
-    const cleanEmail = email.trim()
+    const cleanName = name.trim();
+    const cleanEmail = email.trim();
 
     if (!cleanName) {
-      setFormError('Apna naam enter karo.')
-      return
+      setFormError('Apna naam enter karo.');
+      return;
     }
 
     if (
       cleanEmail &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)
     ) {
-      setFormError('Email address check karo.')
-      return
+      setFormError('Email address check karo.');
+      return;
     }
 
-    setUser({ name: cleanName, email: cleanEmail })
-    setFormError('')
-    setName('')
-    setEmail('')
+    setUser({ name: cleanName, email: cleanEmail });
+    setFormError('');
+    setName('');
+    setEmail('');
   }
 
   return (
     <section className="mx-4 mt-6 space-y-4 pb-6">
-      <div className="mb-5">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-violet-400">
+      <header className="mb-5">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-violet-400">
           Your workspace
         </p>
-        <h2 className="text-2xl font-bold tracking-tight">
-          {t.profile}
-        </h2>
+        <h2 className="text-2xl font-bold">{t.profile}</h2>
         <p className={`mt-1 text-sm ${muted}`}>
           Account aur app preferences manage karo.
         </p>
-      </div>
+      </header>
 
-      {/* Account */}
       <div className={`rounded-2xl ${card} border border-white/5 p-5`}>
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/15 text-xl font-bold text-violet-300">
@@ -107,7 +108,7 @@ export default function ProfileScreen({
         </div>
 
         {user ? (
-          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+          <div className="rounded-xl border border-white/5 p-4">
             <p className="text-sm">
               {t.welcome},{' '}
               <span className="font-semibold text-violet-300">
@@ -124,7 +125,7 @@ export default function ProfileScreen({
             <button
               type="button"
               onClick={() => setUser(null)}
-              className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-400 transition hover:bg-rose-500/15"
+              className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-400"
             >
               {t.logout}
             </button>
@@ -133,8 +134,8 @@ export default function ProfileScreen({
           <form
             className="space-y-3"
             onSubmit={(event) => {
-              event.preventDefault()
-              signIn()
+              event.preventDefault();
+              signIn();
             }}
           >
             <input
@@ -166,20 +167,19 @@ export default function ProfileScreen({
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-violet-600 py-3 text-sm font-bold text-white shadow-lg shadow-violet-950/20 transition hover:bg-violet-500"
+              className="w-full rounded-xl bg-violet-600 py-3 text-sm font-bold text-white hover:bg-violet-500"
             >
               {t.login}
             </button>
 
             <p className={`text-xs leading-relaxed ${muted}`}>
-              Ye local profile hai. Isse online account, password
-              protection ya cloud sync create nahi hota.
+              Ye local profile hai. Isse online account ya cloud sync
+              create nahi hota.
             </p>
           </form>
         )}
       </div>
 
-      {/* Appearance */}
       <div className={`space-y-5 rounded-2xl ${card} border border-white/5 p-5`}>
         <div>
           <h3 className={sectionTitle}>{t.settings}</h3>
@@ -196,7 +196,7 @@ export default function ProfileScreen({
             <button
               type="button"
               aria-pressed={settings.dark}
-              className={btn(settings.dark)}
+              className={buttonClass(settings.dark)}
               onClick={() => update({ dark: true })}
             >
               🌙 {t.dark}
@@ -204,7 +204,7 @@ export default function ProfileScreen({
             <button
               type="button"
               aria-pressed={!settings.dark}
-              className={btn(!settings.dark)}
+              className={buttonClass(!settings.dark)}
               onClick={() => update({ dark: false })}
             >
               ☀️ {t.light}
@@ -220,7 +220,7 @@ export default function ProfileScreen({
             <button
               type="button"
               aria-pressed={settings.lang === 'en'}
-              className={btn(settings.lang === 'en')}
+              className={buttonClass(settings.lang === 'en')}
               onClick={() => update({ lang: 'en' })}
             >
               English
@@ -228,7 +228,7 @@ export default function ProfileScreen({
             <button
               type="button"
               aria-pressed={settings.lang === 'hi'}
-              className={btn(settings.lang === 'hi')}
+              className={buttonClass(settings.lang === 'hi')}
               onClick={() => update({ lang: 'hi' })}
             >
               हिंदी / Hinglish
@@ -237,25 +237,19 @@ export default function ProfileScreen({
         </div>
 
         <div>
-          <div className="mb-2">
-            <p className="text-sm font-semibold">{t.notifications}</p>
-            <p className={`mt-1 text-xs ${muted}`}>
-              App notifications preference
-            </p>
-          </div>
-
+          <p className="text-sm font-semibold">{t.notifications}</p>
           <button
             type="button"
             role="switch"
             aria-checked={settings.notif}
             onClick={() => update({ notif: !settings.notif })}
-            className={`flex w-full items-center justify-between rounded-xl border border-white/5 p-3 text-sm transition ${
+            className={`mt-3 flex w-full items-center justify-between rounded-xl border border-white/5 p-3 text-sm ${
               settings.notif ? 'bg-violet-500/10' : 'bg-white/[0.02]'
             }`}
           >
-            <span>{settings.notif ? 'Enabled' : 'Disabled'}</span>
+            <span>{settings.notif ? t.on : t.off}</span>
             <span
-              className={`relative h-6 w-11 rounded-full transition ${
+              className={`relative h-6 w-11 rounded-full ${
                 settings.notif ? 'bg-violet-600' : 'bg-zinc-600'
               }`}
             >
@@ -266,20 +260,18 @@ export default function ProfileScreen({
               />
             </span>
           </button>
-
           <p className={`mt-2 text-xs ${muted}`}>
-            Ye preference toggle hai; real push notifications ke liye
-            additional notification service setup karni hogi.
+            Ye preference toggle hai; push notifications ke liye
+            additional service chahiye.
           </p>
         </div>
       </div>
 
-      {/* Investment preferences */}
       <div className={`space-y-5 rounded-2xl ${card} border border-white/5 p-5`}>
         <div>
           <h3 className={sectionTitle}>Investment preferences</h3>
           <p className={`mt-1 text-xs ${muted}`}>
-            Ye preferences sirf tumhari settings hain, financial advice nahi.
+            Ye settings hain, financial advice nahi.
           </p>
         </div>
 
@@ -287,10 +279,9 @@ export default function ProfileScreen({
           <p className={`mb-3 text-sm font-semibold ${muted}`}>
             {t.riskProfile}
           </p>
-
           <div className="space-y-2">
             {riskOptions.map((option) => {
-              const active = settings.risk === option.value
+              const active = settings.risk === option.value;
 
               return (
                 <button
@@ -298,7 +289,7 @@ export default function ProfileScreen({
                   key={option.value}
                   aria-pressed={active}
                   onClick={() => update({ risk: option.value })}
-                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${
+                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left ${
                     active
                       ? 'border-violet-500 bg-violet-500/10'
                       : 'border-white/5 hover:border-white/15'
@@ -315,7 +306,6 @@ export default function ProfileScreen({
                       <span className="h-2 w-2 rounded-full bg-white" />
                     )}
                   </span>
-
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold">
                       {option.label}
@@ -325,7 +315,7 @@ export default function ProfileScreen({
                     </span>
                   </span>
                 </button>
-              )
+              );
             })}
           </div>
         </div>
@@ -337,17 +327,15 @@ export default function ProfileScreen({
           >
             {t.investmentGoal}
           </label>
-
           <textarea
             id="investment-goal"
             value={settings.goal}
             onChange={(event) => update({ goal: event.target.value })}
-            placeholder="Example: Long-term wealth creation, 5–10 years"
+            placeholder={t.goalPlaceholder}
             maxLength={300}
             rows={3}
-            className={inputClass + ' resize-y'}
+            className={`${inputClass} resize-y`}
           />
-
           <p className={`mt-1 text-right text-xs ${muted}`}>
             {settings.goal.length}/300
           </p>
@@ -355,35 +343,20 @@ export default function ProfileScreen({
       </div>
 
       <div className={`rounded-2xl ${card} border border-white/5 p-4`}>
-        <p className="text-sm font-semibold">StockSaathi</p>
+        <p className="text-sm font-semibold">{t.appName}</p>
         <p className={`mt-1 text-xs leading-relaxed ${muted}`}>
           Market data aur screening tools informational purposes ke liye
           hain. Investing mein loss ka risk hota hai; returns guaranteed
           nahi hain.
         </p>
+        <p className={`mt-2 text-xs leading-relaxed ${muted}`}>
+          {t.disclaimer}
+        </p>
       </div>
     </section>
-  )
-}
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      </div>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              )}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    </div>
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          <div className={`rounded-2xl ${card} p-5 space-y-4`}>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  <h2 className="text-base font-semibold">{t.settings}</h2>
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          <div>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    <p className={`text-sm ${muted} mb-2`}>{t.theme}</p>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              <div className="flex gap-2">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          <button className={btn(settings.dark)} onClick={() => update({ dark: true })}>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        {t.dark}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    </button>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                <button className={btn(!settings.dark)} onClick={() => update({ dark: false })}>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              {t.light}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          </button>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    </div>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            </div>
+  );
+            }
+</div>
 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     <div>
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               <p className={`text-sm ${muted} mb-2`}>{t.language}</p>
