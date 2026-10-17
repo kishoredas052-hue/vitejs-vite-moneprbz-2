@@ -365,7 +365,7 @@ export default function ProfileScreen({
     </section>
   )
 }
-</button>
+
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       </div>
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               )}
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     </div>
