@@ -1,21 +1,20 @@
+
 import { useEffect, useState } from 'react'
-import type { Stock, Timeframe, T } from './data'
-import { timeframes } from './data'
-import LineChart from './LineChart'
+import type { Stock, T } from './data'
 
 const API = 'https://pro-investment-backend.onrender.com'
 
-type An = {
-  price: number
-  sma20: number | null
-  sma50: number | null
-  rsi: number | null
-  high52: number | null
-  low52: number | null
-  pe: number | null
-  roe: number | null
-  verdict: string
-  reasons?: string[]
+type Analysis = {
+  price?: number
+  change_percent?: number
+  rsi?: number
+  sma50?: number
+  sma200?: number
+  pe?: number
+  volume?: number
+  recommendation?: string
+  verdict?: string
+  error?: string
 }
 
 type Props = {
@@ -28,177 +27,256 @@ type Props = {
   onBack: () => void
 }
 
-const f = (v: number | null | undefined, d = 2) =>
-  v === null || v === undefined ? '-' : v.toFixed(d)
+function Metric({
+  label,
+  value,
+  muted,
+}: {
+  label: string
+  value: string
+  muted: string
+}) {
+  return (
+    <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-4">
+      <p className={`text-xs ${muted}`}>{label}</p>
+      <p className="mt-2 break-words text-lg font-semibold tabular-nums">
+        {value}
+      </p>
+    </div>
+  )
+}
 
-export default function StockDetail({ stock, card, muted, t, added, onToggle, onBack }: Props) {
-  const [tf, setTf] = useState<Timeframe>('1M')
-  const [points, setPoints] = useState<number[] | null>(null)
-  const [an, setAn] = useState<An | null>(null)
-  const [ai, setAi] = useState<string | null>(null)
-  const [aiLoading, setAiLoading] = useState(false)
-  const symbol = stock.exch === 'NSE' ? `${stock.name}.NS` : stock.name
+function formatNumber(value: number | undefined, digits = 2) {
+  if (value === undefined || !Number.isFinite(value)) return '—'
+
+  return value.toLocaleString('en-IN', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })
+}
+
+export default function StockDetail({
+  stock,
+  card,
+  muted,
+  t,
+  added,
+  onToggle,
+  onBack,
+}: Props) {
+  const [analysis, setAnalysis] = useState<Analysis | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    let cancelled = false
-    setPoints(null)
-    fetch(`${API}/history?symbol=${encodeURIComponent(symbol)}&tf=${tf}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled && Array.isArray(d.points) && d.points.length > 1) {
-          setPoints(d.points)
+    const controller = new AbortController()
+
+    async function loadAnalysis() {
+      setLoading(true)
+      setError('')
+      setAnalysis(null)
+
+      const symbol =
+        stock.exch === 'NSE' ? `${stock.name}.NS` : stock.name
+
+      try {
+        const response = await fetch(
+          `${API}/analysis?symbol=${encodeURIComponent(symbol)}`,
+          { signal: controller.signal },
+        )
+
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}`)
         }
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
+
+        const data: Analysis = await response.json()
+
+        if (!controller.signal.aborted) {
+          setAnalysis(data)
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return
+
+        setError('Analysis data abhi available nahi hai. Thodi der baad try karo.')
+      } finally {
+        if (!controller.signal.aborted) setLoading(false)
+      }
     }
-  }, [symbol, tf])
 
-  useEffect(() => {
-    let cancelled = false
-    setAn(null)
-    setAi(null)
-    fetch(`${API}/analysis?symbol=${encodeURIComponent(symbol)}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled && typeof d.price === 'number') setAn(d)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [symbol])
+    void loadAnalysis()
 
-  const loadAi = () => {
-    setAiLoading(true)
-    fetch(`${API}/ai-verdict?symbol=${encodeURIComponent(symbol)}`)
-      .then((r) => r.json())
-      .then((d) => setAi(d.text ?? d.error ?? 'AI summary nahi mila.'))
-      .catch(() => setAi('AI summary abhi load nahi ho paaya. Thodi der baad try karein.'))
-      .finally(() => setAiLoading(false))
-  }
+    return () => controller.abort()
+  }, [stock.name, stock.exch])
 
-  const last = points ? points[points.length - 1] : null
-  const first = points ? points[0] : null
-  const changePct = last !== null && first ? ((last - first) / first) * 100 : null
-  const prefix = stock.exch === 'NASDAQ' ? '$ ' : ''
-  const priceText =
-    last !== null
-      ? prefix +
-        last.toLocaleString(stock.exch === 'NSE' ? 'en-IN' : 'en-US', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      : stock.price
+  const price =
+    typeof analysis?.price === 'number'
+      ? analysis.price
+      : Number(stock.price)
 
-  const vColor =
-    an?.verdict === 'Positive bias'
-      ? 'text-green-400'
-      : an?.verdict === 'Weak bias'
-      ? 'text-red-400'
-      : muted
+  const hasPrice = Number.isFinite(price) && price > 0
+  const change =
+    typeof analysis?.change_percent === 'number'
+      ? analysis.change_percent
+      : stock.change
+
+  const currency =
+    stock.exch === 'NASDAQ' || stock.exch === 'NYSE' ? '$' : '₹'
+
+  const verdict = analysis?.verdict ?? analysis?.recommendation
+  const positive = change >= 0
 
   return (
-    <section className="mx-4 mt-6">
-      <button onClick={onBack} className={`text-sm ${muted} mb-3`}>
-        ← Back
+    <main className="px-4 pb-8 pt-5">
+      <button
+        type="button"
+        onClick={onBack}
+        className={`mb-5 inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm ${muted} transition hover:text-violet-400`}
+      >
+        <span aria-hidden="true">←</span>
+        {t.back}
       </button>
 
-      <div className={`rounded-2xl ${card} p-5`}>
-        <p className={`text-sm ${muted}`}>
-          {stock.name} · {stock.exch}
-        </p>
-        <p className="text-3xl font-bold mt-1">{priceText}</p>
-        {changePct !== null && (
-          <p className={changePct >= 0 ? 'text-green-400 text-sm mt-1' : 'text-red-400 text-sm mt-1'}>
-            {changePct >= 0 ? '+' : ''}
-            {changePct.toFixed(2)}% ({tf})
+      <section className={`${card} rounded-3xl border border-white/5 p-5`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className={`text-xs uppercase tracking-widest ${muted}`}>
+              Stock overview
+            </p>
+            <h2 className="mt-2 break-words text-2xl font-bold">
+              {stock.name}
+            </h2>
+            <p className={`mt-1 text-sm ${muted}`}>{stock.exch}</p>
+          </div>
+
+          <span className="rounded-xl bg-violet-500/15 px-3 py-2 text-xs font-medium text-violet-300">
+            Research
+          </span>
+        </div>
+
+        <div className="mt-6">
+          <p className={`text-xs ${muted}`}>Latest available price</p>
+
+          <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums">
+            {hasPrice
+              ? `${currency}${price.toLocaleString(
+                  stock.exch === 'NSE' ? 'en-IN' : 'en-US',
+                  { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                )}`
+              : '—'}
           </p>
-        )}
 
-        {points ? (
-          <LineChart data={points} />
-        ) : (
-          <p className={`text-sm ${muted} mt-6 h-24`}>Chart load ho raha hai...</p>
-        )}
-
-        <div className="flex justify-between mt-4 text-sm">
-          {timeframes.map((x) => (
-            <button
-              key={x}
-              onClick={() => setTf(x)}
-              className={`px-3 py-1 rounded-full ${tf === x ? 'bg-violet-600 text-white' : muted}`}
-            >
-              {x}
-            </button>
-          ))}
+          <p
+            className={`mt-2 text-sm font-semibold ${
+              positive ? 'text-emerald-400' : 'text-red-400'
+            }`}
+          >
+            {positive ? '+' : ''}
+            {formatNumber(change)}%
+            <span className={`ml-2 font-normal ${muted}`}>
+              daily change
+            </span>
+          </p>
         </div>
 
         <button
+          type="button"
           onClick={() => onToggle(stock.name)}
-          className={`mt-5 w-full rounded-lg py-2 text-sm ${
-            added ? 'bg-violet-600 text-white' : `border border-zinc-600 ${muted}`
+          className={`mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition ${
+            added
+              ? 'border border-violet-500/40 bg-violet-500/10 text-violet-300'
+              : 'bg-violet-600 text-white hover:bg-violet-500'
           }`}
         >
-          {added ? t.inWatch : t.addToWatch}
+          {added ? `✓ ${t.inWatch}` : `＋ ${t.addToWatch}`}
         </button>
-      </div>
+      </section>
 
-      {an && (
-        <div className={`rounded-2xl ${card} p-5 mt-4`}>
-          <p className="font-semibold">Analysis</p>
-          <p className={`text-sm mt-1 ${vColor}`}>{an.verdict}</p>
-
-          <div className="grid grid-cols-2 gap-3 mt-3 text-sm">
-            <div>
-              <p className={`text-xs ${muted}`}>RSI (14)</p>
-              <p>{f(an.rsi, 1)}</p>
-            </div>
-            <div>
-              <p className={`text-xs ${muted}`}>SMA 20 / 50</p>
-              <p>
-                {f(an.sma20, 0)} / {f(an.sma50, 0)}
-              </p>
-            </div>
-            <div>
-              <p className={`text-xs ${muted}`}>52W High / Low</p>
-              <p>
-                {f(an.high52, 0)} / {f(an.low52, 0)}
-              </p>
-            </div>
-            <div>
-              <p className={`text-xs ${muted}`}>PE / ROE %</p>
-              <p>
-                {f(an.pe, 1)} / {f(an.roe, 1)}
-              </p>
-            </div>
-          </div>
-
-          <ul className={`mt-3 text-xs ${muted} list-disc pl-4 space-y-1`}>
-            {(an.reasons ?? []).map((r, i) => (
-              <li key={i}>{r}</li>
-            ))}
-          </ul>
-
-          <div className="mt-4">
-            {!ai && (
-              <button
-                onClick={loadAi}
-                disabled={aiLoading}
-                className="w-full rounded-lg border border-zinc-600 py-2 text-sm"
-              >
-                {aiLoading ? 'AI soch raha hai...' : 'AI summary dekhein'}
-              </button>
-            )}
-            {ai && <p className="text-sm whitespace-pre-line">{ai}</p>}
-          </div>
-
-          <p className={`text-[10px] ${muted} mt-3`}>
-            Ye sirf analysis signal hai, buy ya sell ki salah nahi.
-          </p>
+      <section className="mt-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Technical indicators</h3>
+          {loading && (
+            <span className={`text-xs ${muted}`}>Loading…</span>
+          )}
         </div>
-      )}
-    </section>
-  )
+
+        {error && (
+          <div
+            role="status"
+            className={`${card} mb-3 rounded-xl border border-amber-500/20 p-4 text-sm ${muted}`}
+          >
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <Metric
+            label="RSI (14)"
+            value={formatNumber(analysis?.rsi)}
+            muted={muted}
+          />
+          <Metric
+            label="P/E ratio"
+            value={formatNumber(analysis?.pe)}
+            muted={muted}
+          />
+          <Metric
+            label="SMA 50"
+            value={
+              typeof analysis?.sma50 === 'number'
+                ? `${currency}${formatNumber(analysis.sma50)}`
+                : '—'
             }
+            muted={muted}
+          />
+          <Metric
+            label="SMA 200"
+            value={
+              typeof analysis?.sma200 === 'number'
+                ? `${currency}${formatNumber(analysis.sma200)}`
+                : '—'
+            }
+            muted={muted}
+          />
+          <Metric
+            label="Volume"
+            value={
+              typeof analysis?.volume === 'number'
+                ? formatNumber(analysis.volume, 0)
+                : '—'
+            }
+            muted={muted}
+          />
+          <Metric
+            label="Data status"
+            value={loading ? 'Loading' : analysis ? 'Received' : 'Unavailable'}
+            muted={muted}
+          />
+        </div>
+      </section>
+
+      <section className={`${card} mt-6 rounded-2xl border border-white/5 p-5`}>
+        <h3 className="font-semibold">Analysis summary</h3>
+
+        {loading ? (
+          <p className={`mt-2 text-sm ${muted}`}>
+            Market analysis load ho raha hai…
+          </p>
+        ) : verdict ? (
+          <p className="mt-2 text-sm leading-6">{verdict}</p>
+        ) : (
+          <p className={`mt-2 text-sm leading-6 ${muted}`}>
+            Abhi koi summary available nahi hai. Technical indicators ko
+            context ke saath dekho; sirf ek indicator ke basis par decision
+            mat lo.
+          </p>
+        )}
+      </section>
+
+      <p className={`mt-5 text-xs leading-5 ${muted}`}>
+        Market data delayed ya unavailable ho sakta hai. RSI aur moving
+        averages research indicators hain, guaranteed buy/sell signals nahi.
+        Investment decision se pehle apni research karo.
+      </p>
+    </main>
+  )
+}
