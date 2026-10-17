@@ -199,3 +199,4 @@ export const navItems: {
   { tab: "Watchlist", key: "watchlist", icon: "☆" },
   { tab: "Profile", key: "profile", icon: "☻" },
 ];
+    
