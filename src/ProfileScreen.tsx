@@ -355,8 +355,8 @@ export default function ProfileScreen({
       </div>
     </section>
   );
-            }
-</div>
+}          
+
 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     <div>
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               <p className={`text-sm ${muted} mb-2`}>{t.language}</p>
