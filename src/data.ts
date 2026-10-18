@@ -1,4 +1,3 @@
-
 export type Stock = {
   name: string;
   exch: string;
