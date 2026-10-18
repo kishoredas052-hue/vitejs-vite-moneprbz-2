@@ -147,6 +147,8 @@ def _analyze(symbol: str):
         "change_percent": change_pct,
         "sma20": sma20,
         "sma50": sma50,
+        "sma200": sma200,
+        "volume": volume,
         "rsi": rsi,
         "pe": pe,
         "roe": roe,
