@@ -78,7 +78,17 @@ def _analyze(symbol: str):
 
     sma20 = _num(close.rolling(20).mean().iloc[-1])
     sma50 = _num(close.rolling(50).mean().iloc[-1]) if len(close) >= 50 else None
+    sma200 = (
+    _num(close.rolling(200).mean().iloc[-1])
+    if len(close) >= 200
+    else None
+)
 
+    volume = (
+    int(hist["Volume"].dropna().iloc[-1])
+    if "Volume" in hist.columns and not hist["Volume"].dropna().empty
+    else None
+)
     try:
         info = t.info or {}
     except Exception:
