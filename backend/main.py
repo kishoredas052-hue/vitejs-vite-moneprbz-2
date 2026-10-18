@@ -93,7 +93,11 @@ def _analyze(symbol: str):
         info = t.info or {}
     except Exception:
         info = {}
-    pe = _num(info.get("trailingPE"))
+    is_etf = symbol in {
+    f"{etf_symbol}.NS"
+    for etf_symbol in ETFS_UNIVERSE.values()
+}
+    pe = None if is_etf else _num(info.get("trailingPE"))
     roe_raw = info.get("returnOnEquity")
     roe = _num(roe_raw * 100) if isinstance(roe_raw, (int, float)) else None
 
