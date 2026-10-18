@@ -107,10 +107,17 @@ export default function StockDetail({
     return () => controller.abort()
   }, [stock.name, stock.exch])
 
+  const fallbackPrice =
+  stock.price && stock.price !== '—'
+    ? Number(stock.price)
+    : NaN
+
   const price =
-    typeof analysis?.price === 'number'
-      ? analysis.price
-      : Number(stock.price)
+     typeof analysis?.price === 'number' &&
+     Number.isFinite(analysis.price) &&
+     analysis.price > 0
+       ? analysis.price
+       : fallbackPrice
 
   const hasPrice = Number.isFinite(price) && price > 0
   const change =
