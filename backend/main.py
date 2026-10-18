@@ -90,10 +90,10 @@ def _analyze(symbol: str):
     else None
 )
     try:
-        info = t.info or {}
+    info = t.info or {}
     except Exception:
-        info = {}
-        print("TCS FUNDAMENTALS:", {
+    info = {}
+     print("TCS FUNDAMENTALS:", {
     "trailingPE": info.get("trailingPE"),
     "returnOnEquity": info.get("returnOnEquity"),
     "keys_count": len(info)
