@@ -89,18 +89,25 @@ def _analyze(symbol: str):
     if "Volume" in hist.columns and not hist["Volume"].dropna().empty
     else None
 )
-    try:
-    info = t.info or {}
-    except Exception:
-    info = {}
-     print("TCS FUNDAMENTALS:", {
-    "trailingPE": info.get("trailingPE"),
-    "returnOnEquity": info.get("returnOnEquity"),
-    "keys_count": len(info)
-})
-    is_etf = symbol in {
-    f"{etf_symbol}.NS"
-    for etf_symbol in ETFS_UNIVERSE.values()
+    
+        try:
+            info = t.info or {}
+        except Exception:
+            info = {}
+
+        print("TCS FUNDAMENTALS:", {
+            "trailingPE": 
+info.get("trailingPE"),
+            "returnOnEquity": 
+info.get("returnOnEquity"),
+            "keys_count": len(info)
+        })
+        is_etf = symbol in {
+            f"{etf_symbol}.NS"
+            for etf_symbol in 
+ETFS_UNIVERSE.values()
+        }
+
 }
     pe = None if is_etf else _num(info.get("trailingPE"))
     roe_raw = info.get("returnOnEquity")
